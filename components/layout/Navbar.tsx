@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { Menu, X } from 'lucide-react'
 import { useState } from 'react'
@@ -13,8 +14,15 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="text-xl font-bold text-white">
-            Tranxfer<span className="text-[#00FF87]">.</span>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/images/tm_logo.svg"
+              alt="Tranxfer Market"
+              width={140}
+              height={36}
+              className="h-9 w-auto object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop nav */}

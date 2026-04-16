@@ -28,12 +28,13 @@ function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00FF87]/20 bg-[#00FF87]/5 px-4 py-2 text-sm text-[#00FF87] mb-8">
             <Zap className="w-3.5 h-3.5" />
-            <span>The future of football recruitment</span>
+            <span>The Future of Football Recruitment</span>
           </div>
 
           {/* Heading */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
-            Your next move{' '}
+            Your next move
+            <br />
             <span className="gradient-text text-glow">starts here</span>
           </h1>
 
@@ -48,18 +49,11 @@ function Hero() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <SignedOut>
               <Link
-                href="/sign-up?type=player"
+                href="/get-started"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#00FF87] text-[#0A0F1E] px-8 py-4 font-semibold text-base hover:bg-[#00CC6A] transition-all duration-200 hover:shadow-green-md"
               >
-                I&apos;m a Player
+                Select your profile
                 <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/sign-up?type=club"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 text-white px-8 py-4 font-semibold text-base hover:bg-white/10 hover:border-white/30 transition-all duration-200"
-              >
-                I&apos;m a Club / Scout
-                <Search className="w-4 h-4" />
               </Link>
             </SignedOut>
             <SignedIn>
@@ -90,6 +84,64 @@ function Hero() {
               <span>180+ Transfers facilitated</span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Select Your Profile ─────────────────────────────────────────────────────
+
+function SelectProfile() {
+  return (
+    <section className="py-24 relative bg-gradient-to-b from-[#0A0F1E] to-[#0D1526]">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <p className="text-[#00FF87] text-xs font-semibold uppercase tracking-widest mb-4">
+            Get started
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Select your profile</h2>
+          <p className="text-white/50 max-w-lg mx-auto">
+            Tell us who you are and we&apos;ll tailor your experience from the very first step.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {/* Player */}
+          <Link
+            href="/get-started?role=player"
+            className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:border-[#00FF87]/40 hover:bg-[#00FF87]/5 transition-all duration-300"
+          >
+            <div className="text-5xl mb-6">⚽</div>
+            <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-[#00FF87] transition-colors">
+              Player
+            </h3>
+            <p className="text-white/40 text-sm leading-relaxed mb-6">
+              Build your professional profile, set your availability, and get discovered by clubs and scouts worldwide.
+            </p>
+            <div className="inline-flex items-center gap-2 text-[#00FF87] text-sm font-semibold">
+              Get started free
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* Agent */}
+          <Link
+            href="/get-started?role=agent"
+            className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:border-[#00FF87]/40 hover:bg-[#00FF87]/5 transition-all duration-300"
+          >
+            <div className="text-5xl mb-6">🔍</div>
+            <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-[#00FF87] transition-colors">
+              Agent
+            </h3>
+            <p className="text-white/40 text-sm leading-relaxed mb-6">
+              Search our verified player database, build shortlists, and make direct contact with the talent your club needs.
+            </p>
+            <div className="inline-flex items-center gap-2 text-[#00FF87] text-sm font-semibold">
+              Start searching
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
         </div>
       </div>
     </section>
@@ -426,6 +478,7 @@ export default function HomePage() {
       <Navbar />
       <main>
         <Hero />
+        <SelectProfile />
         <HowItWorks />
         <Pricing />
         <FinalCTA />
