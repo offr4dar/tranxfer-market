@@ -14,7 +14,7 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
+          <Link href="/home" className="flex items-center">
             <Image
               src="/images/tm_logo.svg"
               alt="Tranxfer Market"
@@ -27,10 +27,10 @@ export function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/#how-it-works" className="text-white/60 hover:text-white text-sm transition-colors">
+            <Link href="/home#how-it-works" className="text-white/60 hover:text-white text-sm transition-colors">
               How it works
             </Link>
-            <Link href="/#pricing" className="text-white/60 hover:text-white text-sm transition-colors">
+            <Link href="/home#pricing" className="text-white/60 hover:text-white text-sm transition-colors">
               Pricing
             </Link>
 
@@ -78,10 +78,10 @@ export function Navbar() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden py-4 border-t border-white/5 space-y-3">
-            <Link href="/#how-it-works" className="block text-white/60 hover:text-white text-sm py-2">
+            <Link href="/home#how-it-works" className="block text-white/60 hover:text-white text-sm py-2">
               How it works
             </Link>
-            <Link href="/#pricing" className="block text-white/60 hover:text-white text-sm py-2">
+            <Link href="/home#pricing" className="block text-white/60 hover:text-white text-sm py-2">
               Pricing
             </Link>
             <SignedOut>

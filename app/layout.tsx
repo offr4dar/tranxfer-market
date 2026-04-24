@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Anton } from 'next/font/google'
 import { GeistMono } from 'geist/font/mono'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from '@/components/ui/toaster'
@@ -8,6 +8,13 @@ import './globals.css'
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+const anton = Anton({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-anton',
   display: 'swap',
 })
 
@@ -87,7 +94,7 @@ export default function RootLayout({
     >
       <html lang="en" suppressHydrationWarning className="dark">
         <body
-          className={`${inter.variable} ${GeistMono.variable} font-sans antialiased bg-[#0A0F1E] text-white min-h-screen`}
+          className={`${inter.variable} ${GeistMono.variable} ${anton.variable} font-sans antialiased bg-[#0A0F1E] text-white min-h-screen`}
         >
           {children}
           <Toaster />

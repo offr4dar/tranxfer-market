@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
 // Routes that are public (no auth needed)
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/home(.*)',
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/players/(.*)',        // Public player profiles
@@ -41,6 +42,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // If signed in and hitting sign-in/sign-up → redirect to dashboard
   if (userId && (req.nextUrl.pathname.startsWith('/sign-in') || req.nextUrl.pathname.startsWith('/sign-up'))) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
+
+  // Signed-in users visiting the splash skip straight to home
+  if (userId && req.nextUrl.pathname === '/') {
+    return NextResponse.redirect(new URL('/home', req.url))
   }
 
   return NextResponse.next()
