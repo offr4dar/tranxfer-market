@@ -1,40 +1,38 @@
-# ─── Dependencies ────────────────────────────────────────────────────────────
+# Dependencies
 node_modules/
-.pnp
-.pnp.js
 
-# ─── Next.js ─────────────────────────────────────────────────────────────────
-.next/
-out/
-build/
+# Expo
+.expo/
+dist/
+web-build/
 
-# ─── Environment Variables ───────────────────────────────────────────────────
+# Environment variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-# Keep .env.example committed as a template
+.env.*.local
 
-# ─── Production Build ────────────────────────────────────────────────────────
-dist/
+# Native builds
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
 
-# ─── Logs ────────────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+*.pem
+
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# ─── OS & Editor ─────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-*.pem
-.vscode/
-.idea/
-
-# ─── Testing ─────────────────────────────────────────────────────────────────
-coverage/
-
-# ─── Misc ────────────────────────────────────────────────────────────────────
+# TypeScript
 *.tsbuildinfo
-next-env.d.ts
+
+# Next.js (legacy — kept for reference only)
+.next/
+out/
