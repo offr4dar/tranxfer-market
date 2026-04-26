@@ -5,16 +5,13 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as Linking from 'expo-linking'
-import { useOAuth } from '@clerk/clerk-expo'
+import { useAuth } from '@clerk/clerk-expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import MaskedView from '@react-native-masked-view/masked-view'
 import Svg, { Path, G, ClipPath, Rect, Defs } from 'react-native-svg'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
-import * as SplashScreen from 'expo-splash-screen'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import LoginOverlay from '@/components/LoginOverlay'
-
-SplashScreen.preventAutoHideAsync()
 
 const { width: W, height: H } = Dimensions.get('window')
 
@@ -58,18 +55,17 @@ const STAGGER = 200
 export default function SplashWelcome() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { isLoaded, isSignedIn } = useAuth()
   const [phase, setPhase] = useState<'splash' | 'welcome'>('splash')
   const [showLogin, setShowLogin] = useState(false)
 
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' })
-  const handleGoogle = useCallback(async () => {
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/'),
-      })
-      if (createdSessionId && setActive) await setActive({ session: createdSessionId })
-    } catch (e) { console.error('Google OAuth error', e) }
-  }, [])
+  // Refs keep auth state fresh inside the animation closure (avoids stale capture)
+  const isLoadedRef   = useRef(isLoaded)
+  const isSignedInRef = useRef(isSignedIn)
+  useEffect(() => { isLoadedRef.current   = isLoaded   }, [isLoaded])
+  useEffect(() => { isSignedInRef.current = isSignedIn }, [isSignedIn])
+
+
   // Image layer
   const imageX = useRef(new Animated.Value(SPLASH_IMG_X)).current
   const imageOpacity = useRef(new Animated.Value(0.28)).current
@@ -84,7 +80,7 @@ export default function SplashWelcome() {
 
   const [fontsLoaded] = useFonts({ Anton_400Regular })
 
-  useEffect(() => { if (fontsLoaded) SplashScreen.hideAsync() }, [fontsLoaded])
+
 
   useEffect(() => {
     if (!fontsLoaded) return
@@ -122,6 +118,12 @@ export default function SplashWelcome() {
           ]),
         ]),
       ]).start(() => {
+        // Already signed in — skip welcome and go straight to the feed.
+        // Read from refs so we see the live Clerk state, not the stale closure value.
+        if (isLoadedRef.current && isSignedInRef.current) {
+          router.replace('/(tabs)/feed')
+          return
+        }
         setPhase('welcome')
         Animated.timing(welcomeOpacity, {
           toValue: 1, duration: 350, useNativeDriver: true,
@@ -205,7 +207,7 @@ export default function SplashWelcome() {
           styles.welcomeContent,
           {
             opacity: welcomeOpacity,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: Math.max(insets.bottom + 36, 60),
           },
         ]}
         pointerEvents={phase === 'welcome' ? 'auto' : 'none'}
@@ -217,22 +219,13 @@ export default function SplashWelcome() {
         </View>
 
         <View style={styles.buttonGroup}>
-          <View style={styles.topBtnRow}>
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleGoogle}
-              activeOpacity={0.85}
-            >
-              <GoogleIcon />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.emailBtn}
-              onPress={() => setShowLogin(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.secondaryBtnText}>BY EMAIL</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.emailBtn}
+            onPress={() => setShowLogin(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.secondaryBtnText}>BY EMAIL</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={() => router.push('/(auth)/onboarding')}
@@ -308,19 +301,7 @@ function Rule({ flipped = false }: { flipped?: boolean }) {
   )
 }
 
-function GoogleIcon() {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Defs><ClipPath id="gc"><Rect width={24} height={24} /></ClipPath></Defs>
-      <G clipPath="url(#gc)">
-        <Path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-        <Path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-        <Path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-        <Path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-      </G>
-    </Svg>
-  )
-}
+
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
@@ -369,14 +350,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.48,
   },
   buttonGroup: { gap: 32 },
-  topBtnRow: { flexDirection: 'row', gap: 10 },
-  googleBtn: {
-    width: 108, height: BTN_H,
-    backgroundColor: '#ffffff', borderRadius: BTN_R,
-    alignItems: 'center', justifyContent: 'center',
-  },
   emailBtn: {
-    flex: 1, height: BTN_H,
+    height: BTN_H,
     backgroundColor: '#ffffff', borderRadius: BTN_R,
     alignItems: 'center', justifyContent: 'center',
   },

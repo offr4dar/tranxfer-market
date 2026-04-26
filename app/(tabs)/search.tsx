@@ -1,104 +1,183 @@
-import { useState } from 'react'
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native'
+import { useState, useCallback, useRef } from 'react'
+import {
+  View, Text, StyleSheet, TextInput, FlatList,
+  TouchableOpacity, ScrollView, ActivityIndicator,
+} from 'react-native'
+import { supabase } from '@/lib/supabase'
+import PlayerCard, { PlayerProfile } from '@/components/PlayerCard'
+import FilterToggle, { FilterToggleOption } from '@/components/FilterToggle'
+import ScreenHeader from '@/components/ScreenHeader'
+import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing, Radius } from '@/constants/theme'
 
-const POSITIONS = ['All', 'GK', 'CB', 'LB', 'RB', 'CM', 'CAM', 'LW', 'RW', 'ST']
+const POSITIONS = ['All','GK','CB','LB','RB','CDM','CM','CAM','LW','RW','ST']
 
 export default function SearchScreen() {
-  const [query, setQuery] = useState('')
-  const [selectedPosition, setSelectedPosition] = useState('All')
+  const [query, setQuery]           = useState('')
+  const [position, setPosition]     = useState('All')
+  const [availability, setAvailability] = useState<FilterToggleOption>('all')
+  const [results, setResults]       = useState<PlayerProfile[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [searched, setSearched]     = useState(false)
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const search = useCallback(async (
+    q: string, pos: string, avail: FilterToggleOption
+  ) => {
+    setLoading(true)
+    setSearched(true)
+
+    let qb = supabase
+      .from('player_profiles')
+      .select('id,user_id,first_name,last_name,primary_position,age,current_club,contract_status,nationality,is_verified')
+      .eq('is_searchable', true)
+
+    if (q.trim()) {
+      qb = qb.or(
+        `first_name.ilike.%${q}%,last_name.ilike.%${q}%,current_club.ilike.%${q}%`
+      )
+    }
+    if (pos !== 'All') qb = qb.eq('primary_position', pos)
+    if (avail === 'available') {
+      qb = qb.in('contract_status', ['available_now', 'available_eot'])
+    }
+
+    const { data } = await qb.limit(50)
+    setResults((data as PlayerProfile[]) ?? [])
+    setLoading(false)
+  }, [])
+
+  const onChangeText = (text: string) => {
+    setQuery(text)
+    if (debounce.current) clearTimeout(debounce.current)
+    debounce.current = setTimeout(() => search(text, position, availability), 300)
+  }
+
+  const onPositionPress = (pos: string) => {
+    setPosition(pos)
+    search(query, pos, availability)
+  }
+
+  const onAvailabilityChange = (avail: FilterToggleOption) => {
+    setAvailability(avail)
+    search(query, position, avail)
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Search Players</Text>
-        <TextInput
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Name, club, nationality..."
-          placeholderTextColor={Colors.textMuted}
-        />
+    <ScreenBackground>
+      <ScreenHeader />
+
+      {/* Search input */}
+      <View style={styles.inputSection}>
+        <View style={styles.inputWrap}>
+          <Text style={styles.inputIcon}>🔍</Text>
+          <TextInput
+            style={styles.input}
+            value={query}
+            onChangeText={onChangeText}
+            placeholder="Name, club, nationality…"
+            placeholderTextColor={Colors.textMuted}
+            returnKeyType="search"
+            onSubmitEditing={() => search(query, position, availability)}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => { setQuery(''); setResults([]); setSearched(false) }}>
+              <Text style={styles.clearBtn}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
+      {/* Position chips */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
+        horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chips}
       >
-        {POSITIONS.map((pos) => (
+        {POSITIONS.map(pos => (
           <TouchableOpacity
             key={pos}
-            style={[styles.filterChip, selectedPosition === pos && styles.filterChipActive]}
-            onPress={() => setSelectedPosition(pos)}
+            style={[styles.chip, position === pos && styles.chipActive]}
+            onPress={() => onPositionPress(pos)}
           >
-            <Text style={[styles.filterText, selectedPosition === pos && styles.filterTextActive]}>
+            <Text style={[styles.chipText, position === pos && styles.chipTextActive]}>
               {pos}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyIcon}>🔍</Text>
-        <Text style={styles.emptyTitle}>Scout the talent pool</Text>
-        <Text style={styles.emptyBody}>
-          Advanced search, filters, and shortlisting coming in Phase 3.{'\n'}
-          Available to subscribed agents.
-        </Text>
+      {/* Availability toggle */}
+      <View style={styles.toggleRow}>
+        <FilterToggle value={availability} onChange={onAvailabilityChange} />
       </View>
-    </View>
+
+      {/* Results */}
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator color={Colors.brand} /></View>
+      ) : (
+        <FlatList
+          data={results}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>{searched ? '😶' : '🔍'}</Text>
+              <Text style={styles.emptyTitle}>
+                {searched ? 'No players found' : 'Scout the talent pool'}
+              </Text>
+              <Text style={styles.emptySub}>
+                {searched
+                  ? 'Try adjusting your search or filters.'
+                  : 'Search by name, club, position or availability.'}
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => <PlayerCard player={item} />}
+        />
+      )}
+    </ScreenBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 60,
+  container: { flex: 1 },
+  inputSection: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    gap: Spacing.md,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.text },
-  searchInput: {
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    height: 48,
-    paddingHorizontal: Spacing.md,
-    color: Colors.text,
-    fontSize: 15,
-  },
-  filterRow: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.md, paddingHorizontal: Spacing.md, height: 48,
     gap: Spacing.sm,
   },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+  inputIcon: { fontSize: 15 },
+  input: { flex: 1, color: Colors.text, fontSize: 15 },
+  clearBtn: { color: Colors.textMuted, fontSize: 16 },
+  chips: {
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm,
   },
-  filterChipActive: {
-    backgroundColor: Colors.brand,
-    borderColor: Colors.brand,
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: Radius.full, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '500' },
-  filterTextActive: { color: Colors.background, fontWeight: '700' },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
+  chipActive: { backgroundColor: Colors.brand, borderColor: Colors.brand },
+  chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '500' },
+  chipTextActive: { color: Colors.background, fontWeight: '700' },
+  toggleRow: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
-  emptyIcon: { fontSize: 40 },
-  emptyTitle: { color: Colors.text, fontSize: 18, fontWeight: '600', textAlign: 'center' },
-  emptyBody: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  list: { padding: Spacing.lg, paddingBottom: 200 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyIcon: { fontSize: 36 },
+  emptyTitle: { fontSize: 17, fontWeight: '600', color: Colors.text },
+  emptySub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 })

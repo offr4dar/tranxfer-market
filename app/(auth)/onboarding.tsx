@@ -1,17 +1,20 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, Animated, Dimensions, Easing,
   TouchableOpacity, TextInput, ScrollView, Modal,
   FlatList, ActivityIndicator, Platform, ImageBackground,
 } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useSignUp } from '@clerk/clerk-expo'
+import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router'
+import { useSignUp, useAuth, useUser, useClerk } from '@clerk/clerk-expo'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import MaskedView from '@react-native-masked-view/masked-view'
 import Svg, { Path } from 'react-native-svg'
 import { SvgXml } from 'react-native-svg'
 import { supabase } from '@/lib/supabase'
+import { setPendingProfile } from '@/lib/pendingProfile'
+import { UK_OUTCODES } from '@/lib/uk-outcodes'
+import ConfirmCancelModal from '@/components/ConfirmCancelModal'
 
 const { width: W } = Dimensions.get('window')
 const H_PAD = 20
@@ -22,16 +25,17 @@ const SVG_PLAYER = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" 
 
 const SVG_AGENT = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.75 7H14.75C13.0931 7 11.75 8.34315 11.75 10V60C11.75 61.6569 13.0931 63 14.75 63H49.75C51.4069 63 52.75 61.6569 52.75 60V10C52.75 8.34315 51.4069 7 49.75 7Z" fill="#00FF87"/><path d="M32.25 6C33.6307 6 34.75 4.88071 34.75 3.5C34.75 2.11929 33.6307 1 32.25 1C30.8693 1 29.75 2.11929 29.75 3.5C29.75 4.88071 30.8693 6 32.25 6Z" fill="#00FF87"/><path d="M48.75 11H15.75V59H48.75V11Z" fill="#262E24"/><path d="M25.749 4.5H38.751C40.683 4.50019 42.25 6.07117 42.25 8V11.5H22.25V8C22.25 6.06703 23.8165 4.50019 25.749 4.5Z" fill="#287B49" stroke="#00FF87"/><path d="M24.5 52C26.1569 52 27.5 50.6569 27.5 49C27.5 47.3431 26.1569 46 24.5 46C22.8431 46 21.5 47.3431 21.5 49C21.5 50.6569 22.8431 52 24.5 52Z" stroke="#00FF87" stroke-width="2" stroke-linecap="round"/><path d="M26.5 32L32.0445 37.5445M26.5 37.5445L32.0445 32" stroke="#00FF87" stroke-width="2" stroke-linecap="round"/><path d="M38.1643 21.5278C37.9034 21.437 37.6185 21.5749 37.5278 21.8357L36.0494 26.086C35.9587 26.3468 36.0966 26.6318 36.3574 26.7225C36.6182 26.8132 36.9032 26.6753 36.9939 26.4145L38.308 22.6365L42.086 23.9506C42.3468 24.0413 42.6318 23.9034 42.7225 23.6426C42.8132 23.3818 42.6753 23.0968 42.4145 23.0061L38.1643 21.5278ZM30.5 48.5L30.6923 48.9615C31.0112 48.8286 31.3231 48.6928 31.6279 48.554L31.4208 48.099L31.2136 47.6439C30.9189 47.7781 30.6169 47.9096 30.3077 48.0385L30.5 48.5ZM33.2133 47.2034L33.4538 47.6418C34.0716 47.3029 34.6546 46.9491 35.2033 46.5805L34.9244 46.1654L34.6455 45.7504C34.1233 46.1013 33.566 46.4396 32.9729 46.765L33.2133 47.2034ZM36.5242 44.9639L36.8463 45.3464C37.3878 44.8903 37.8852 44.4149 38.3389 43.9204L37.9705 43.5824L37.6021 43.2444C37.1788 43.7058 36.7125 44.1516 36.2021 44.5815L36.5242 44.9639ZM39.2123 42.0158L39.6262 42.2963C40.02 41.7151 40.362 41.1123 40.6532 40.4883L40.2001 40.2769L39.747 40.0654C39.4784 40.6409 39.1627 41.1976 38.7983 41.7354L39.2123 42.0158ZM40.8984 38.4031L41.3792 38.5402C41.567 37.8815 41.7056 37.2039 41.7965 36.5081L41.3007 36.4433L40.8049 36.3785C40.7201 37.0274 40.5912 37.6566 40.4175 38.266L40.8984 38.4031ZM41.4279 34.446L41.9279 34.4464C41.9283 33.777 41.8899 33.093 41.814 32.3948L41.3169 32.4489L40.8199 32.503C40.8921 33.1674 40.9283 33.815 40.9279 34.4457L41.4279 34.446ZM41.008 30.4714L41.4981 30.3727C41.3673 29.723 41.2072 29.0619 41.0186 28.3896L40.5372 28.5246L40.0557 28.6597C40.238 29.3096 40.3922 29.9464 40.5178 30.5701L41.008 30.4714ZM39.9353 26.6155L40.4074 26.4509C40.1904 25.8285 39.9511 25.1971 39.6899 24.5568L39.2269 24.7456L38.764 24.9345C39.019 25.5598 39.2522 26.175 39.4631 26.7801L39.9353 26.6155ZM38.4287 22.9081L38.8829 22.6991C38.7432 22.3954 38.5989 22.0898 38.4501 21.7822L38 22L37.5499 22.2178C37.696 22.5196 37.8375 22.8194 37.9744 23.1171L38.4287 22.9081Z" fill="#00FF87"/></svg>`
 
-const SVG_CLUB = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M31.5 61.6201C24.0758 57.062 19.4787 49.8327 16.7812 42.5635C14.0488 35.2 13.2858 27.8431 13.4883 23.3008L31.5 13.3477V61.6201Z" stroke="#00FF87"/><path d="M32.5 61.6201C39.9242 57.062 44.5213 49.8327 47.2188 42.5635C49.9512 35.2 50.7142 27.8431 50.5117 23.3008L32.5 13.3477V61.6201Z" stroke="#00FF87"/><path d="M32 13.5L14 23.5L30.7 60.52L32 61.4L33.3 60.52L50 23.5L32 13.5Z" fill="#152112"/><path d="M32 15.5L31.9999 58.5C19.1999 51.1099 15.8333 32.7541 16 24.5L32 15.5Z" fill="#00FF87"/><path d="M32 15.5L31.9999 58.5C44.7999 51.1099 48.1666 32.7541 48 24.5L32 15.5Z" fill="#287B49"/><path d="M32.61 42.2536L36.6388 41.2648L34.1478 35.3258L38.5 28L34.4712 28.9888L32.8029 31.7753L32.6724 31.8074L31.7702 29.6501L27.679 30.6517L30.0906 36.321L25.5 44L29.5912 42.9984L31.4297 39.8909L31.5943 39.8523L32.61 42.2536Z" fill="#152112"/><path d="M33.1492 3.4344L32.0392 0L30.9162 3.4344H27.312L30.2371 5.54989L29.1141 8.98429L32.0392 6.8688L34.9513 8.98429L33.8413 5.54989L36.7532 3.4344H33.1492Z" fill="#00FF87"/><path d="M22.7023 5.99388L21.5923 2.55948L20.4823 5.99388H16.8782L19.7902 8.10937L18.6803 11.5438L21.5923 9.42828L24.5174 11.5438L23.3944 8.10937L26.3195 5.99388H22.7023Z" fill="#00FF87"/><path d="M12.3338 9.50662L11.2238 12.941H7.61963L10.5317 15.0565L9.42171 18.4909L12.3338 16.3624L15.2589 18.4909L14.1359 15.0565L17.061 12.941H13.4568L12.3338 9.50662Z" fill="#00FF87"/><path d="M42.3946 2.55948L41.2846 5.99388H37.6804L40.5925 8.10937L39.4825 11.5438L42.3946 9.42828L45.3195 11.5438L44.1965 8.10937L47.1218 5.99388H43.5176L42.3946 2.55948Z" fill="#00FF87"/><path d="M52.776 12.941L51.6529 9.50662L50.5429 12.941H46.9387L49.8509 15.0565L48.7409 18.4909L51.6529 16.3624L54.578 18.4909L53.4551 15.0565L56.3802 12.941H52.776Z" fill="#00FF87"/></svg>`
-
-type Role = 'player' | 'agent' | 'club'
+type Role = 'player' | 'agent'
+type AgentType = 'independent_agent' | 'club_scout' | 'scouting_network'
 interface WizardData {
   role: Role | null
+  agentType: AgentType | null
   firstName: string; lastName: string; age: string
   outwardCode: string; postcode: string
   email: string; password: string
+  termsAccepted: boolean
 }
-const INIT: WizardData = { role: null, firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '' }
+const INIT: WizardData = { role: null, agentType: null, firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false }
 const AGES = Array.from({ length: 60 }, (_, i) => String(i + 16))
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -158,8 +162,7 @@ const gt = StyleSheet.create({
 // ─── Step 1: Role cards ───────────────────────────────────────────────────────
 const ROLES = [
   { key: 'player' as Role, label: 'Player', svg: SVG_PLAYER },
-  { key: 'agent' as Role, label: 'Agent', svg: SVG_AGENT },
-  { key: 'club' as Role, label: 'Club', svg: SVG_CLUB },
+  { key: 'agent' as Role,  label: 'Agent / Scout', svg: SVG_AGENT  },
 ]
 function RoleStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
@@ -180,77 +183,131 @@ const rs = StyleSheet.create({
   label: { fontSize: 12, color: '#fff', fontWeight: '700', letterSpacing: 0.24, textTransform: 'uppercase', textAlign: 'center' },
 })
 
-// ─── Step 2: Profile ──────────────────────────────────────────────────────────
-function ProfileStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
-  const [showAge, setShowAge] = useState(false)
+// ─── Step 2: About you (age picker, agent sub-type, location) ───────────────
+const AGENT_ROLES: { key: AgentType; label: string; sub?: string }[] = [
+  { key: 'independent_agent', label: "I'm a FIFA licensed agent" },
+  { key: 'club_scout',        label: "I'm a club registered scout" },
+  { key: 'scouting_network',  label: 'Freelance scout', sub: 'Not currently tied to a club' },
+]
+
+function RadioOption({
+  label, sub, selected, onPress,
+}: { label: string; sub?: string; selected: boolean; onPress: () => void }) {
   return (
-    <View style={{ gap: 24 }}>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1, gap: 5 }}>
-          <Text style={fs.label}>First name</Text>
-          <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="John"
-            value={data.firstName} onChangeText={v => onChange({ firstName: v })} autoCapitalize="words" />
-        </View>
-        <View style={{ flex: 1, gap: 5 }}>
-          <Text style={fs.label}>Last name</Text>
-          <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Doe"
-            value={data.lastName} onChangeText={v => onChange({ lastName: v })} autoCapitalize="words" />
-        </View>
+    <TouchableOpacity
+      style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* Radio circle */}
+      <View style={[
+        ro.outer,
+        selected && ro.outerSelected,
+      ]}>
+        {selected && <View style={ro.inner} />}
       </View>
-      <View style={{ gap: 5 }}>
-        <Text style={fs.label}>What's your age?</Text>
-        <TouchableOpacity style={fs.select} onPress={() => setShowAge(true)} activeOpacity={0.85}>
-          <Text style={data.age ? fs.val : fs.ph}>{data.age || 'Select age'}</Text>
-          <ChevronDown />
-        </TouchableOpacity>
+      {/* Labels */}
+      <View style={{ flex: 1, paddingTop: 7, gap: 4 }}>
+        <Text style={fs.label}>{label}</Text>
+        {sub && <Text style={fs.hint}>{sub}</Text>}
       </View>
-      <Modal visible={showAge} transparent animationType="slide">
-        <View style={fs.pickerBg}>
-          <View style={fs.pickerSheet}>
-            <View style={fs.pickerHead}>
-              <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>Select age</Text>
-              <TouchableOpacity onPress={() => setShowAge(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
-            </View>
-            <FlatList data={AGES} keyExtractor={i => i} renderItem={({ item }) => (
-              <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
-                onPress={() => { onChange({ age: item }); setShowAge(false) }}>
-                <Text style={{ fontSize: 18, color: data.age === item ? ACCENT : '#fff' }}>{item}</Text>
-              </TouchableOpacity>
-            )} />
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </TouchableOpacity>
   )
 }
+const ro = StyleSheet.create({
+  outer: {
+    width: 34, height: 34, borderRadius: 17,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  outerSelected: { borderColor: '#00FF87' },
+  inner: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#00FF87',
+  },
+})
 
-// ─── Step 3: Location ─────────────────────────────────────────────────────────
-function LocationStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  const [showAge, setShowAge] = useState(false)
   const [chips, setChips] = useState<string[]>([])
-  const [fetching, setFetching] = useState(false)
-  const search = useCallback(async (q: string) => {
-    if (q.length < 2) { setChips([]); return }
-    setFetching(true)
-    try {
-      const res = await fetch(`https://api.postcodes.io/postcodes?q=${encodeURIComponent(q)}&limit=30`)
-      const json = await res.json()
-      if (json.result) setChips([...new Set<string>(json.result.map((p: any) => p.outcode as string))].sort())
-    } catch { setChips([]) } finally { setFetching(false) }
+
+  const search = useCallback((q: string) => {
+    if (q.length < 1) { setChips([]); return }
+    setChips([...new Set(UK_OUTCODES.filter(c => c.startsWith(q.toUpperCase())))])
   }, [])
+
+  const proximityText = data.role === 'agent'
+    ? 'Only the first half is needed. This allows us to determine your proximity to matched players.'
+    : 'Only the first half is needed. This allows us to determine your proximity to matched clubs.'
+
   return (
-    <View style={{ gap: 24 }}>
-      <View style={{ gap: 5 }}>
-        <Text style={fs.label}>Where are you based?</Text>
-        <Text style={fs.hint}>Only the first half is needed. This helps determine your proximity to matched clubs.</Text>
-        <TextInput style={[fs.input, { marginTop: 4 }]} placeholderTextColor="#909090" placeholder="e.g. SE1"
-          value={data.outwardCode}
-          onChangeText={v => { const u = v.toUpperCase(); onChange({ outwardCode: u, postcode: '' }); search(u) }}
-          autoCapitalize="characters" />
-      </View>
-      {(chips.length > 0 || fetching) && (
-        <View style={{ gap: 8 }}>
-          <Text style={[fs.label, { textAlign: 'center' }]}>Select your postcode</Text>
-          {fetching ? <ActivityIndicator color={ACCENT} /> : (
+    <View style={{ gap: 32 }}>
+      {/* Agent sub-type — agents only */}
+      {data.role === 'agent' && (
+        <View style={{ gap: 10 }}>
+          <Text style={fs.label}>Which role best describes you?</Text>
+          <View style={{ gap: 16 }}>
+            {AGENT_ROLES.map(r => (
+              <RadioOption
+                key={r.key}
+                label={r.label}
+                sub={r.sub}
+                selected={data.agentType === r.key}
+                onPress={() => onChange({ agentType: r.key })}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Age — players only */}
+      {data.role === 'player' && (
+        <View style={{ gap: 5 }}>
+          <Text style={fs.label}>What's your age?</Text>
+          <TouchableOpacity style={fs.select} onPress={() => setShowAge(true)} activeOpacity={0.85}>
+            <Text style={data.age ? fs.val : fs.ph}>{data.age || 'Select age'}</Text>
+            <ChevronDown />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {data.role === 'player' && (
+        <Modal visible={showAge} transparent animationType="slide">
+          <View style={fs.pickerBg}>
+            <View style={fs.pickerSheet}>
+              <View style={fs.pickerHead}>
+                <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>Select age</Text>
+                <TouchableOpacity onPress={() => setShowAge(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
+              </View>
+              <FlatList data={AGES} keyExtractor={i => i} renderItem={({ item }) => (
+                <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
+                  onPress={() => { onChange({ age: item }); setShowAge(false) }}>
+                  <Text style={{ fontSize: 18, color: data.age === item ? ACCENT : '#fff' }}>{item}</Text>
+                </TouchableOpacity>
+              )} />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Location */}
+      <View style={{ gap: 16 }}>
+        <View style={{ gap: 5 }}>
+          <Text style={fs.label}>Where are you based?</Text>
+          <Text style={fs.hint}>{proximityText}</Text>
+          <TextInput
+            style={[fs.input, { marginTop: 4 }]}
+            placeholderTextColor="#909090"
+            placeholder="e.g. SE1"
+            value={data.outwardCode}
+            onChangeText={v => { const u = v.toUpperCase(); onChange({ outwardCode: u, postcode: '' }); search(u) }}
+            autoCapitalize="characters"
+          />
+        </View>
+        {chips.length > 0 && (
+          <View style={{ gap: 10 }}>
+            <Text style={[fs.label, { textAlign: 'center' }]}>Select your postcode</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {chips.map(c => (
                 <TouchableOpacity key={c} style={[cs.chip, data.postcode === c && cs.chipActive]}
@@ -259,9 +316,46 @@ function LocationStep({ data, onChange }: { data: WizardData; onChange: (d: Part
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-        </View>
+          </View>
+        )}
+      </View>
+    </View>
+  )
+}
+
+// ─── Step 3: Your details (name) ─────────────────────────────────────────────
+
+/** Returns the registration body wording for the dynamic intro paragraph */
+function registrationBody(data: WizardData): string {
+  if (data.role === 'player') return 'The FA'
+  switch (data.agentType) {
+    case 'independent_agent': return 'The FA'
+    case 'club_scout':        return 'your club'
+    case 'scouting_network':  return 'your network'
+    default:                  return 'The FA'
+  }
+}
+
+function DetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  return (
+    <View style={{ gap: 24 }}>
+      {/* Dynamic intro — hidden for freelance scouts (no registration body applies) */}
+      {data.agentType !== 'scouting_network' && (
+        <Text style={fs.intro}>
+          Please enter the name you used when you registered with {registrationBody(data)}.
+        </Text>
       )}
+
+      <View style={{ gap: 5 }}>
+        <Text style={fs.label}>First name</Text>
+        <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="John"
+          value={data.firstName} onChangeText={v => onChange({ firstName: v })} autoCapitalize="words" />
+      </View>
+      <View style={{ gap: 5 }}>
+        <Text style={fs.label}>Last name</Text>
+        <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Doe"
+          value={data.lastName} onChangeText={v => onChange({ lastName: v })} autoCapitalize="words" />
+      </View>
     </View>
   )
 }
@@ -280,14 +374,67 @@ function AccountStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Min. 8 characters"
           value={data.password} onChangeText={v => onChange({ password: v })} secureTextEntry />
       </View>
+
+      {/* Terms checkbox */}
+      <TermsCheckbox
+        checked={data.termsAccepted}
+        onToggle={() => onChange({ termsAccepted: !data.termsAccepted })}
+        isPlayer={data.role === 'player'}
+      />
     </View>
   )
 }
 
+// ─── Terms checkbox ───────────────────────────────────────────────────────────
+function TermsCheckbox({
+  checked, onToggle, isPlayer,
+}: {
+  checked: boolean
+  onToggle: () => void
+  isPlayer: boolean
+}) {
+  return (
+    <TouchableOpacity
+      style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 30 }}
+      onPress={onToggle}
+      activeOpacity={0.8}
+    >
+      {/* Custom square checkbox */}
+      <View style={[tc.box, checked && tc.boxChecked]}>
+        {checked && <CheckIcon />}
+      </View>
+
+      {/* Label with underlined link words */}
+      <Text style={[fs.label, { flex: 1, lineHeight: 22 }]}>
+        {isPlayer
+          ? 'I am 16 years old or over and have read and agree to the '
+          : 'I have read and agree to the '}
+        <Text style={tc.link} onPress={() => { /* TODO: open terms */ }}>terms</Text>
+        {', '}
+        <Text style={tc.link} onPress={() => { /* TODO: open privacy */ }}>privacy</Text>
+        {' and '}
+        <Text style={tc.link} onPress={() => { /* TODO: open safeguarding */ }}>safeguarding</Text>
+        {' policies'}
+      </Text>
+    </TouchableOpacity>
+  )
+}
+const tc = StyleSheet.create({
+  box: {
+    width: 22, height: 22, borderRadius: 5,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, marginTop: 1,
+  },
+  boxChecked: { backgroundColor: ACCENT, borderWidth: 0 },
+  link: { textDecorationLine: 'underline', color: '#ffffff' },
+})
+
 // ─── Shared field styles ──────────────────────────────────────────────────────
 const fs = StyleSheet.create({
   label: { fontSize: 16, color: '#fff', letterSpacing: 0.32 },
-  hint: { fontSize: 14, color: '#c1c1c1', letterSpacing: 0.28 },
+  hint:  { fontSize: 14, color: '#c1c1c1', letterSpacing: 0.28 },
+  intro: { fontSize: 16, color: '#fff', letterSpacing: 0.32, lineHeight: 22 },
   input: { height: 59, backgroundColor: 'rgba(0,0,0,0.31)', borderWidth: 1, borderColor: '#4f4f4f', borderRadius: 10, paddingHorizontal: 20, fontSize: 16, color: '#fff' },
   select: { height: 59, backgroundColor: 'rgba(0,0,0,0.31)', borderWidth: 1, borderColor: '#4f4f4f', borderRadius: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   val: { fontSize: 16, color: '#fff' },
@@ -298,31 +445,55 @@ const fs = StyleSheet.create({
 })
 const cs = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.11)' },
-  chipActive: { borderWidth: 1, borderColor: ACCENT, backgroundColor: 'rgba(0,255,135,0.12)' },
+  chipActive: { borderWidth: 1, borderColor: '#dedede' },
   chipText: { fontSize: 16, color: '#fff', fontWeight: '700', letterSpacing: 0.32 },
 })
 
+// ─── Step 4 (OAuth variant): account exists, just accept terms ──────────────────
+function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  return (
+    <View style={{ gap: 24 }}>
+      <Text style={fs.intro}>
+        Your Google account is connected. Accept our policies below to complete your Tranxfer profile.
+      </Text>
+      <TermsCheckbox
+        checked={data.termsAccepted}
+        onToggle={() => onChange({ termsAccepted: !data.termsAccepted })}
+        isPlayer={data.role === 'player'}
+      />
+    </View>
+  )
+}
+
 // ─── Validation ───────────────────────────────────────────────────────────────
-function validate(step: number, data: WizardData): string {
+function validate(step: number, data: WizardData, isOAuth = false): string {
   if (step === 0 && !data.role) return 'Please select your profile type'
-  if (step === 1 && !data.firstName.trim()) return 'Please enter your first name'
-  if (step === 1 && !data.lastName.trim()) return 'Please enter your last name'
-  if (step === 1 && !data.age) return 'Please select your age'
-  if (step === 2 && !data.postcode) return 'Please select a postcode'
-  if (step === 3 && !data.email.trim()) return 'Please enter your email'
-  if (step === 3 && data.password.length < 8) return 'Password must be at least 8 characters'
+  if (step === 1 && data.role === 'player' && !data.age) return 'Please select your age'
+  if (step === 1 && data.role === 'agent' && !data.agentType) return 'Please select your role'
+  if (step === 1 && !data.postcode) return 'Please select a postcode'
+  if (step === 2 && !data.firstName.trim()) return 'Please enter your first name'
+  if (step === 2 && !data.lastName.trim()) return 'Please enter your last name'
+  if (!isOAuth && step === 3 && !data.email.trim()) return 'Please enter your email'
+  if (!isOAuth && step === 3 && data.password.length < 8) return 'Password must be at least 8 characters'
+  if (step === 3 && !data.termsAccepted) return 'Please accept the terms to continue'
   return ''
 }
-function isStepValid(step: number, data: WizardData) { return validate(step, data) === '' }
+function isStepValid(step: number, data: WizardData, isOAuth = false) { return validate(step, data, isOAuth) === '' }
 
 // ─── Screen titles per step ───────────────────────────────────────────────────
-const TITLES = ['SELECT YOUR\nPROFILE', 'TELL US ABOUT\nYOU', 'WHERE ARE YOU\nBASED?', 'CREATE YOUR\nACCOUNT']
+const TITLES = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function OnboardingScreen() {
-  const router  = useRouter()
-  const insets  = useSafeAreaInsets()
+  const router      = useRouter()
+  const navigation  = useNavigation()
+  const insets      = useSafeAreaInsets()
   const { signUp, setActive, isLoaded } = useSignUp()
+  const { userId: authUserId }          = useAuth()
+  const { user }                        = useUser()
+  const clerk                           = useClerk()
+  const { oauth }                       = useLocalSearchParams<{ oauth?: string }>()
+  const isOAuth                         = oauth === '1'
 
   const [step,        setStep]        = useState(0)
   const [displayStep, setDisplayStep] = useState(0)
@@ -331,6 +502,17 @@ export default function OnboardingScreen() {
   const [loading,     setLoading]     = useState(false)
   const [pendingStep, setPendingStep] = useState<number | null>(null)
   const [inTrans,     setInTrans]     = useState(false)
+  const [showCancel,  setShowCancel]  = useState(false)
+
+  // Pre-fill name from Google when arriving via OAuth
+  useEffect(() => {
+    if (!isOAuth || !user) return
+    setData(d => ({
+      ...d,
+      firstName: d.firstName || user.firstName || '',
+      lastName:  d.lastName  || user.lastName  || '',
+    }))
+  }, [isOAuth, user])
 
   // Dual-panel parallax
   const currentX       = useRef(new Animated.Value(0)).current
@@ -391,83 +573,170 @@ export default function OnboardingScreen() {
   }
 
   const goNext = async () => {
-    const err = validate(step, data)
+    const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
     if (step < 3) { animateStep(1, step + 1); return }
+
+    // ─ OAuth path: account exists, just save profile ──────────────────────────────
+    if (isOAuth) {
+      if (!authUserId) { setError('Authentication error. Please try again.'); return }
+      setLoading(true)
+      try {
+        const table   = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+        const payload: Record<string, unknown> = {
+          user_id:    authUserId,
+          first_name: data.firstName,
+          last_name:  data.lastName,
+          postcode:   data.postcode,
+        }
+        if (data.role === 'player') payload.age        = parseInt(data.age)
+        if (data.role === 'agent')  payload.agent_type = data.agentType ?? 'independent_agent'
+        await supabase.from(table).upsert(payload)
+        router.replace('/(tabs)/feed')
+      } catch (e: any) {
+        setError(e?.message ?? 'Something went wrong')
+      } finally { setLoading(false) }
+      return
+    }
+
+    // ─ Email/password signup path ───────────────────────────────────────────
     if (!isLoaded) return
     setLoading(true)
     try {
-      const result = await signUp.create({ emailAddress: data.email, password: data.password, firstName: data.firstName, lastName: data.lastName })
-      if (result.createdUserId) {
-        await supabase.from('profiles').upsert({ id: result.createdUserId, role: data.role, first_name: data.firstName, last_name: data.lastName, age: parseInt(data.age), postcode: data.postcode })
+      // Build the profile payload before calling signUp.create so we can stash
+      // it for verify-email.tsx — createdUserId is null until status === 'complete'
+      const table   = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+      const payload: Record<string, unknown> = {
+        first_name: data.firstName,
+        last_name:  data.lastName,
+        postcode:   data.postcode,
       }
+      if (data.role === 'player') payload.age        = parseInt(data.age)
+      if (data.role === 'agent')  payload.agent_type = data.agentType ?? 'independent_agent'
+
+      const result = await signUp.create({
+        emailAddress: data.email,
+        password:     data.password,
+        firstName:    data.firstName,
+        lastName:     data.lastName,
+      })
+
       if (result.status === 'complete' && setActive) {
-        await setActive({ session: result.createdSessionId }); router.replace('/(tabs)/feed')
-      } else { router.push('/(auth)/verify-email') }
+        // Rare: verification disabled in Clerk dashboard — save profile immediately
+        payload.user_id = result.createdUserId
+        await supabase.from(table).upsert(payload)
+        await setActive({ session: result.createdSessionId })
+        router.replace('/(tabs)/feed')
+      } else {
+        // Email verification required — stash payload, verify-email.tsx will save it
+        setPendingProfile({ table, payload })
+        router.push('/(auth)/verify-email')
+      }
     } catch (e: any) {
       setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? 'Something went wrong')
     } finally { setLoading(false) }
   }
 
-  const goBack = () => step === 0 ? router.back() : animateStep(-1, step - 1)
-  const valid  = isStepValid(step, data)
-  const CTAS   = ['Next', 'Continue', 'Continue', 'Create account']
+  // Cancel: OAuth users are signed out so they don't loop back to onboarding
+  const handleCancelConfirm = useCallback(async () => {
+    setShowCancel(false)
+    if (isOAuth) { try { await clerk.signOut() } catch {} }
+    navigation.setOptions({ animation: 'fade' })
+    router.replace('/(auth)/welcome')
+  }, [isOAuth, clerk, navigation, router])
 
-  // Title slides with the content as one unit
-  const renderPanel = (s: number) => (
-    <>
+  const goBack = () => step === 0 ? router.back() : animateStep(-1, step - 1)
+  const valid  = isStepValid(step, data, isOAuth)
+  const CTAS   = ['Next', 'Continue', 'Continue', isOAuth ? 'Continue' : 'Create account']
+
+  const renderPanel = (s: number, isActive = false) => (
+    <ScrollView
+      contentContainerStyle={st.panelScroll}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Title */}
       <View style={st.titleBlock}>
-        <GradientTitle text={TITLES[s]} />
+        <GradientTitle text={s === 3 && isOAuth ? 'ALMOST\nTHERE' : TITLES[s]} />
       </View>
-      <ScrollView contentContainerStyle={st.content}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {s === 0 && <RoleStep     data={data} onChange={update} />}
-        {s === 1 && <ProfileStep  data={data} onChange={update} />}
-        {s === 2 && <LocationStep data={data} onChange={update} />}
-        {s === 3 && <AccountStep  data={data} onChange={update} />}
-      </ScrollView>
-    </>
+
+      {/* Step fields */}
+      <View>
+        {s === 0 && <RoleStep    data={data} onChange={update} />}
+        {s === 1 && <AboutStep   data={data} onChange={update} />}
+        {s === 2 && <DetailsStep data={data} onChange={update} />}
+        {s === 3 && (isOAuth
+          ? <OAuthFinalStep data={data} onChange={update} />
+          : <AccountStep    data={data} onChange={update} />
+        )}
+      </View>
+
+      {/* Error — sits directly below the last field */}
+      {isActive && !!error && <Text style={st.errorText}>{error}</Text>}
+
+      {/* Flex spacer: pushes CTAs to bottom of screen when content is short;
+          collapses to minHeight when content overflows so CTAs stay 36px below */}
+      <View style={{ flex: 1, minHeight: 36 }} />
+
+      {/* CTAs */}
+      <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 8, 32) }]}>
+        <TouchableOpacity
+          style={[st.btn, !valid && st.btnDisabled]}
+          onPress={goNext}
+          activeOpacity={valid ? 0.85 : 1}
+          disabled={loading || inTrans}
+        >
+          {loading
+            ? <ActivityIndicator color={valid ? '#000' : '#507664'} />
+            : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{CTAS[s]}</Text>
+          }
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: s === 0 ? 'center' : 'space-between' }}>
+          {s !== 0 && (
+            <TouchableOpacity onPress={goBack} disabled={inTrans}>
+              <Text style={st.cancel}>Back</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setShowCancel(true)} disabled={inTrans}>
+            <Text style={st.cancel}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   )
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <ImageBackground source={require('../../assets/bg_onboarding.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <LinearGradient colors={['rgba(0,0,0,0.44)', 'rgba(155,155,155,0)']} style={StyleSheet.absoluteFill} />
+    <>
+      <View style={StyleSheet.absoluteFill}>
+        <ImageBackground source={require('../../assets/bg_onboarding.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient colors={['rgba(0,0,0,0.44)', 'rgba(155,155,155,0)']} style={StyleSheet.absoluteFill} />
 
-      <View style={[st.root, { paddingTop: Math.max(insets.top + 20, 60) }]}>
+        <View style={[st.root, { paddingTop: Math.max(insets.top + 20, 60) }]}>
 
-        {/* Step dots — each circle fades independently */}
-        <StepRow step={displayStep} opacities={dotOpacities} translates={dotTranslates} />
+          {/* Step dots — each circle fades independently */}
+          <StepRow step={displayStep} opacities={dotOpacities} translates={dotTranslates} />
 
-        {/* Slide area — title + form fields move as one unit */}
-        <View style={st.slideArea}>
-          <Animated.View style={[st.panel, { transform: [{ translateX: currentX }], opacity: currentOpacity }]}>
-            {renderPanel(step)}
-          </Animated.View>
-          {inTrans && pendingStep !== null && (
-            <Animated.View style={[st.panel, st.panelAbsolute, { transform: [{ translateX: incomingX }] }]}>
-              {renderPanel(pendingStep)}
+          {/* Slide area — title + form fields move as one unit */}
+          <View style={st.slideArea}>
+            <Animated.View style={[st.panel, { transform: [{ translateX: currentX }], opacity: currentOpacity }]}>
+              {renderPanel(step, true)}
             </Animated.View>
-          )}
+            {inTrans && pendingStep !== null && (
+              <Animated.View style={[st.panel, st.panelAbsolute, { transform: [{ translateX: incomingX }] }]}>
+                {renderPanel(pendingStep)}
+              </Animated.View>
+            )}
+          </View>
+
         </View>
-
-        {!!error && <Text style={st.error}>{error}</Text>}
-
-        <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 8, 32) }]}>
-          <TouchableOpacity style={[st.btn, !valid && st.btnDisabled]}
-            onPress={goNext} activeOpacity={valid ? 0.85 : 1} disabled={loading || inTrans}>
-            {loading
-              ? <ActivityIndicator color={valid ? '#000' : '#507664'} />
-              : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{CTAS[step]}</Text>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity onPress={goBack} style={{ alignSelf: 'flex-start' }} disabled={inTrans}>
-            <Text style={st.cancel}>{step === 0 ? 'Cancel' : 'Back'}</Text>
-          </TouchableOpacity>
-        </View>
-
       </View>
-    </View>
+
+      <ConfirmCancelModal
+        visible={showCancel}
+        onConfirm={handleCancelConfirm}
+        onDismiss={() => setShowCancel(false)}
+      />
+    </>
   )
 }
 
@@ -477,9 +746,9 @@ const st = StyleSheet.create({
   panel:           { flex: 1 },
   panelAbsolute:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   titleBlock:      { marginTop: 32, marginBottom: 32 },
-  content:         { paddingBottom: 24 },
-  error:           { fontSize: 14, color: '#ea4335', textAlign: 'center', marginBottom: 8 },
-  ctas:            { gap: 16, paddingTop: 12 },
+  panelScroll:     { flexGrow: 1 },
+  errorText:       { color: '#EA4335', fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 8 },
+  ctas:            { gap: 16 },
   btn:             { height: 57, backgroundColor: ACCENT, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
   btnDisabled:     { backgroundColor: '#354e42' },
   btnText:         { fontSize: 14, fontWeight: '700', color: '#000', letterSpacing: 0.28, textTransform: 'uppercase' },

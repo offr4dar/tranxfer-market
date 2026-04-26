@@ -1,68 +1,121 @@
+import { useEffect, useState } from 'react'
+import { View, Text } from 'react-native'
 import { Tabs } from 'expo-router'
-import { Colors } from '@/constants/theme'
-import { Text } from 'react-native'
+import { useAuth } from '@clerk/clerk-expo'
+import { supabase } from '@/lib/supabase'
+import {
+  FeedIcon, SearchIcon, ProfileIcon, MessagesIcon, BellIcon,
+} from '@/components/icons/TabIcons'
+import FloatingTabBar from '@/components/FloatingTabBar'
 
-const TabIcon = ({ icon, focused }: { icon: string; focused: boolean }) => (
-  <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.4 }}>{icon}</Text>
-)
+// ─── Unread badge overlay ─────────────────────────────────────────────────────
+function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
+  return (
+    <View>
+      {icon}
+      {count > 0 && (
+        <View style={{
+          position: 'absolute', top: -4, right: -6,
+          minWidth: 16, height: 16, borderRadius: 8,
+          backgroundColor: '#000000',
+          alignItems: 'center', justifyContent: 'center',
+          paddingHorizontal: 3,
+        }}>
+          <Text style={{ color: '#00FF87', fontSize: 10, fontWeight: '700' }}>
+            {count > 9 ? '9+' : count}
+          </Text>
+        </View>
+      )}
+    </View>
+  )
+}
 
+// ─── Tabs layout ──────────────────────────────────────────────────────────────
 export default function TabsLayout() {
+  const { userId } = useAuth()
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+
+  // Poll unread counts every 30s
+  useEffect(() => {
+    if (!userId) return
+
+    const fetchCounts = async () => {
+      const { count: msgCount } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('read', false)
+        .neq('sender_id', userId)
+      setUnreadMessages(msgCount ?? 0)
+
+      const { count: notifCount } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('read', false)
+      setUnreadNotifications(notifCount ?? 0)
+    }
+
+    fetchCounts()
+    const timer = setInterval(fetchCounts, 30000)
+    return () => clearInterval(timer)
+  }, [userId])
+
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 70,
-        },
-        tabBarActiveTintColor: Colors.brand,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-          marginTop: 2,
-        },
+        lazy: false,
       }}
     >
       <Tabs.Screen
         name="feed"
         options={{
           title: 'Feed',
-          tabBarIcon: ({ focused }) => <TabIcon icon="⚽" focused={focused} />,
+          tabBarIcon: ({ color }) => <FeedIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: 'Search',
-          tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
+          tabBarIcon: ({ color }) => <SearchIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
+          tabBarIcon: ({ color }) => <ProfileIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
-          tabBarIcon: ({ focused }) => <TabIcon icon="💬" focused={focused} />,
+          tabBarIcon: ({ color }) => (
+            <BadgeIcon
+              icon={<MessagesIcon color={color} />}
+              count={unreadMessages}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Alerts',
-          tabBarIcon: ({ focused }) => <TabIcon icon="🔔" focused={focused} />,
+          tabBarIcon: ({ color }) => (
+            <BadgeIcon
+              icon={<BellIcon color={color} />}
+              count={unreadNotifications}
+            />
+          ),
         }}
       />
+      {/* Hidden — navigated to programmatically */}
+      <Tabs.Screen name="conversation/[id]" options={{ href: null }} />
     </Tabs>
   )
 }

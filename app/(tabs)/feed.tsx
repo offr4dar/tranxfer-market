@@ -1,98 +1,143 @@
-import { View, Text, StyleSheet, FlatList } from 'react-native'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { useEffect, useState, useCallback } from 'react'
+import {
+  View, Text, FlatList, StyleSheet, RefreshControl,
+  ActivityIndicator, TouchableOpacity,
+} from 'react-native'
+import { useAuth } from '@clerk/clerk-expo'
+import { supabase } from '@/lib/supabase'
+import PlayerCard, { PlayerProfile } from '@/components/PlayerCard'
+import ScreenHeader from '@/components/ScreenHeader'
+import ScreenBackground from '@/components/ScreenBackground'
+import { Colors } from '@/constants/theme'
 
-const PLACEHOLDER_PLAYERS = [
-  { id: '1', name: 'Marcus Reid', position: 'Left Back', age: 19, club: 'Brixton FC', available: true },
-  { id: '2', name: 'Jordan Osei', position: 'Centre Midfielder', age: 21, club: 'Available', available: true },
-  { id: '3', name: 'Tyrese Williams', position: 'Striker', age: 18, club: 'Peckham Athletic', available: false },
-  { id: '4', name: 'Kwame Asante', position: 'Right Winger', age: 20, club: 'Available', available: true },
-  { id: '5', name: 'Darius Emmanuel', position: 'Centre Back', age: 23, club: 'Lewisham FC', available: false },
-  { id: '6', name: 'Eli Morgan', position: 'Goalkeeper', age: 17, club: 'Available', available: true },
-]
+const BRAND = '#00FF87'
+const DARK = '#0B0F0B'
 
 export default function FeedScreen() {
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.wordmark}>
-          Tranxfer<Text style={styles.dot}>.</Text>
-        </Text>
-        <Text style={styles.headerSub}>Player Feed</Text>
-      </View>
+  const { userId } = useAuth()
+  const [players, setPlayers] = useState<PlayerProfile[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'available'>('all')
 
-      <FlatList
-        data={PLACEHOLDER_PLAYERS}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarEmoji}>⚽</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.playerName}>{item.name}</Text>
-              <Text style={styles.playerMeta}>{item.position} · {item.age} yrs</Text>
-              <View style={[styles.badge, !item.available && styles.badgeMuted]}>
-                <Text style={[styles.badgeText, !item.available && styles.badgeTextMuted]}>
-                  {item.available ? '🟢 Available' : item.club}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.chevron}>›</Text>
+  const fetchPlayers = useCallback(async () => {
+    let query = supabase
+      .from('player_profiles')
+      .select('id,user_id,first_name,last_name,primary_position,secondary_positions,age,current_club,contract_status,nationality,is_verified,is_featured,appearances,goals,assists')
+      .eq('is_searchable', true)
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
+
+    if (filter === 'available') {
+      query = query.in('contract_status', ['available_now', 'available_eot'])
+    }
+
+    const { data, error } = await query
+    if (!error && data) setPlayers(data as PlayerProfile[])
+  }, [filter])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchPlayers().finally(() => setLoading(false))
+  }, [fetchPlayers])
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await fetchPlayers()
+    setRefreshing(false)
+  }
+
+  return (
+    <ScreenBackground>
+
+      {/* ── Header ── */}
+      <ScreenHeader
+        right={
+          <View style={styles.toggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, filter === 'all' && styles.toggleBtnActive]}
+              onPress={() => setFilter('all')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.toggleText, filter === 'all' && styles.toggleTextActive]}>
+                ALL
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, filter === 'available' && styles.toggleBtnActive]}
+              onPress={() => setFilter('available')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.toggleText, filter === 'available' && styles.toggleTextActive]}>
+                AVAILABLE
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
+        }
       />
-    </View>
+
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={Colors.brand} />
+        </View>
+      ) : (
+        <FlatList
+          data={players}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.brand}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>⚽</Text>
+              <Text style={styles.emptyTitle}>No players yet</Text>
+              <Text style={styles.emptySub}>Check back soon — the talent pool is filling up.</Text>
+            </View>
+          }
+          renderItem={({ item }) => <PlayerCard player={item} />}
+        />
+      )}
+    </ScreenBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  wordmark: { fontSize: 22, fontWeight: '800', color: Colors.text },
-  dot: { color: Colors.brand },
-  headerSub: { color: Colors.textSecondary, fontSize: 13, marginTop: 2 },
-  list: { padding: Spacing.lg },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
+  container: { flex: 1 },
+
+  // ALL | AVAILABLE toggle
+  toggle: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: '#003B1F',
+    padding: 3,
+    gap: 2,
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(0,255,135,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  toggleBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 100,
   },
-  avatarEmoji: { fontSize: 22 },
-  cardBody: { flex: 1, gap: 3 },
-  playerName: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  playerMeta: { color: Colors.textSecondary, fontSize: 13 },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,255,135,0.08)',
-    borderRadius: Radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginTop: 4,
+  toggleBtnActive: { backgroundColor: BRAND },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    color: 'rgba(255,255,255,0.5)',
   },
-  badgeMuted: { backgroundColor: 'rgba(255,255,255,0.04)' },
-  badgeText: { color: Colors.brand, fontSize: 11, fontWeight: '600' },
-  badgeTextMuted: { color: Colors.textSecondary },
-  chevron: { color: Colors.textMuted, fontSize: 22 },
+  toggleTextActive: { color: DARK },
+
+  list:   { padding: 16, paddingTop: 30, paddingBottom: 200 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty:      { alignItems: 'center', paddingTop: 80, gap: 12 },
+  emptyIcon:  { fontSize: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
+  emptySub:   { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 })

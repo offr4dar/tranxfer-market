@@ -1,38 +1,98 @@
 import { useSignIn } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
+import { useRouter, useNavigation } from 'expo-router'
 import { useState } from 'react'
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
+  ScrollView, ImageBackground,
 } from 'react-native'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
+import MaskedView from '@react-native-masked-view/masked-view'
 
+import { Colors } from '@/constants/theme'
+
+const H_PAD = 20
+
+// ─── Gradient title — matches onboarding design language ─────────────────────
+const TITLE_SIZE = 50
+const TITLE_LH   = TITLE_SIZE * 1.2   // 60px
+const TITLE_GAP  = -8
+
+function GradientTitle({ text }: { text: string }) {
+  const lines = text.split('\n')
+  if (Platform.OS === 'web') {
+    return (
+      <View>
+        {lines.map((l, i) => (
+          <Text
+            key={i}
+            style={[gt.text, i < lines.length - 1 && { marginBottom: TITLE_GAP }, {
+              background: 'linear-gradient(214deg, #ffffff 31%, #82c3a5 92%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            } as any]}
+          >{l}</Text>
+        ))}
+      </View>
+    )
+  }
+  return (
+    <View style={{ alignSelf: 'stretch' }}>
+      {lines.map((l, i) => (
+        <MaskedView
+          key={i}
+          style={[{ height: TITLE_LH }, i < lines.length - 1 && { marginBottom: TITLE_GAP }]}
+          maskElement={
+            <View style={{ backgroundColor: 'transparent', height: TITLE_LH, justifyContent: 'center' }}>
+              <Text style={gt.text}>{l}</Text>
+            </View>
+          }
+        >
+          <LinearGradient
+            colors={['#ffffff', '#82c3a5']}
+            start={{ x: 0.7, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ width: '100%', height: TITLE_LH }}
+          />
+        </MaskedView>
+      ))}
+    </View>
+  )
+}
+const gt = StyleSheet.create({
+  text: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: TITLE_SIZE,
+    lineHeight: TITLE_LH,
+    color: '#fff',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+})
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
-  const router = useRouter()
+  const router     = useRouter()
+  const navigation = useNavigation()
+  const insets     = useSafeAreaInsets()
 
-  const [email, setEmail] = useState('')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
 
-  // Map Clerk's error codes to plain language the user understands
+  const WRONG_CREDS = "The login details you've entered are incorrect, please try again."
+
+  // Map Clerk error codes to a single friendly message
   const friendlyError = (err: any): string => {
     const code = err?.errors?.[0]?.code ?? ''
-    const meta = err?.errors?.[0]?.meta ?? {}
     switch (code) {
       case 'form_identifier_not_found':
-        return 'No account found with that email. Would you like to create one?'
       case 'form_password_incorrect':
-        return 'Incorrect password. Please try again.'
       case 'form_identifier_exists':
-        return 'An account with this email already exists.'
+        return WRONG_CREDS
       case 'too_many_requests':
         return 'Too many attempts. Please wait a moment and try again.'
       case 'session_exists':
@@ -40,19 +100,15 @@ export default function SignInScreen() {
       default:
         return err?.errors?.[0]?.longMessage
           ?? err?.errors?.[0]?.message
-          ?? 'Something went wrong. Please try again.'
+          ?? WRONG_CREDS
     }
   }
 
   const handleSignIn = async () => {
     if (!isLoaded) return
-
-    // Basic client-side validation before hitting the API
-    if (!email.trim()) { setError('Please enter your email address.'); return }
-    if (!password) { setError('Please enter your password.'); return }
-
-    setLoading(true)
-    setError('')
+    if (!email.trim())  { setError('Please enter your email address.'); return }
+    if (!password)      { setError('Please enter your password.'); return }
+    setLoading(true); setError('')
     try {
       const result = await signIn.create({ identifier: email.trim().toLowerCase(), password })
       await setActive({ session: result.createdSessionId })
@@ -63,203 +119,153 @@ export default function SignInScreen() {
     }
   }
 
+  const handleBack = () => {
+    navigation.setOptions({ animation: 'fade' })
+    router.back()
+  }
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Nav bar */}
-      <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>← Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace('/(auth)/welcome')}
-          style={styles.navBtn}
+    <View style={StyleSheet.absoluteFill}>
+      <ImageBackground
+        source={require('../../assets/bg_onboarding.jpg')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.44)', 'rgba(155,155,155,0)']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            st.scroll,
+            { paddingTop: Math.max(insets.top + 20, 60) },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+          {/* ── Gradient title ─────────────────────────────────────────── */}
+          <View style={st.titleBlock}>
+            <GradientTitle text={'WELCOME\nBACK'} />
+          </View>
 
-      <View style={styles.inner}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your Tranxfer account</Text>
-        </View>
-
-        <View style={styles.form}>
-          {error ? (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>{error}</Text>
-              {error.includes('Would you like to create one') && (
-                <TouchableOpacity
-                  onPress={() => router.push('/(auth)/sign-up')}
-                  style={styles.errorAction}
-                >
-                  <Text style={styles.errorActionText}>Create a free account →</Text>
-                </TouchableOpacity>
-              )}
+          {/* ── Form fields ────────────────────────────────────────────── */}
+          <View style={st.fields}>
+            <View style={st.field}>
+              <Text style={st.label}>Email address</Text>
+              <TextInput
+                style={[st.input, !!error && st.inputError]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor="#909090"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
             </View>
-          ) : null}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
+            <View style={st.field}>
+              <Text style={st.label}>Password</Text>
+              <TextInput
+                style={[st.input, !!error && st.inputError]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor="#909090"
+                secureTextEntry
+              />
+            </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor={Colors.textMuted}
-              secureTextEntry
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color={Colors.background} />
-            ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+            {!!error && (
+              <View style={st.errorCard}>
+                <Text style={st.errorText}>{error}</Text>
+              </View>
             )}
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/sign-up')}
-            style={styles.switchLink}
-          >
-            <Text style={styles.switchText}>
-              Don't have an account?{' '}
-              <Text style={styles.switchTextGreen}>Create one free</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+          {/* Flex spacer — pushes CTA to bottom on short screens */}
+          <View style={{ flex: 1, minHeight: 36 }} />
+
+          {/* ── CTA group ──────────────────────────────────────────────── */}
+          <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 66, 90) }]}>
+            <TouchableOpacity
+              style={[st.btn, loading && st.btnDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading
+                ? <ActivityIndicator color="#000" />
+                : <Text style={st.btnText}>LOGIN</Text>}
+            </TouchableOpacity>
+
+            <View style={st.linkRow}>
+              <TouchableOpacity onPress={handleBack}>
+                <Text style={st.link}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.replace('/(auth)/onboarding')}>
+                <Text style={st.link}>Create an account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  navBtn: { minWidth: 60 },
-  navBtnText: { color: Colors.brand, fontSize: 15 },
-  cancelText: { color: Colors.textSecondary, fontSize: 15, textAlign: 'right' },
-  inner: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
-    gap: Spacing.xl,
-  },
-  header: {
-    gap: Spacing.sm,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-  },
-  form: {
-    gap: Spacing.md,
-  },
-  field: {
-    gap: Spacing.xs,
-  },
-  label: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const st = StyleSheet.create({
+  scroll:     { flexGrow: 1, paddingHorizontal: H_PAD },
+  titleBlock: { marginBottom: 40 },
+  fields:     { gap: 24 },
+  field:      { gap: 5 },
+  label:      { fontSize: 16, color: '#fff', letterSpacing: 0.32 },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 59,
+    backgroundColor: 'rgba(0,0,0,0.31)',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    height: 52,
-    paddingHorizontal: Spacing.md,
-    color: Colors.text,
-    fontSize: 15,
-  },
-  button: {
-    backgroundColor: Colors.brand,
-    borderRadius: Radius.lg,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: Colors.background,
+    borderColor: '#4f4f4f',
+    borderRadius: 10,
+    paddingHorizontal: 20,
     fontSize: 16,
-    fontWeight: '700',
+    color: '#fff',
   },
   errorCard: {
-    backgroundColor: 'rgba(255,68,68,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,68,68,0.25)',
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: Spacing.sm,
+    gap: 8,
   },
-  errorText: {
-    color: Colors.error,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  errorAction: {
-    alignSelf: 'flex-start',
-  },
-  errorActionText: {
-    color: Colors.brand,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  switchLink: {
+  errorText:   { color: Colors.error, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  inputError:  { borderColor: Colors.error },
+  ctas:    { gap: 16 },
+  btn: {
+    height: 57,
+    backgroundColor: Colors.brand,
+    borderRadius: 100,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    justifyContent: 'center',
   },
-  switchText: {
-    color: Colors.textSecondary,
+  btnDisabled: { opacity: 0.6 },
+  btnText: {
     fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: 0.28,
+    textTransform: 'uppercase',
   },
-  switchTextGreen: {
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  link: {
+    fontSize: 16,
     color: Colors.brand,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.32,
   },
 })

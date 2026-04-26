@@ -15,7 +15,7 @@ import {
   PanResponder,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useSignIn } from '@clerk/clerk-expo'
+import { useSignIn, useClerk } from '@clerk/clerk-expo'
 import Svg, { Path } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
@@ -47,6 +47,7 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
   const router  = useRouter()
   const insets  = useSafeAreaInsets()
   const { signIn, setActive, isLoaded } = useSignIn()
+  const clerk = useClerk()
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -131,6 +132,14 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
       const result = await signIn.create({ identifier: email, password })
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId })
+        // Gate: only allow users who completed onboarding (have a profile)
+        const user = clerk.user
+        if (!user?.unsafeMetadata?.onboarded) {
+          await clerk.signOut()
+          setError('No account found. Please tap \'CREATE AN ACCOUNT\' to register first.')
+          setLoading(false)
+          return
+        }
         router.replace('/(tabs)/feed')
       }
     } catch (err: any) {
@@ -175,7 +184,7 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
 
           {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>LOGIN</Text>
+            <Text style={styles.headerTitle}>WELCOME BACK</Text>
             <View style={styles.headerLine} />
             <Pressable onPress={onClose} hitSlop={12}>
               <CloseIcon />
@@ -284,6 +293,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#ffffff',
     letterSpacing: 0.48,
+    textTransform: 'uppercase',
   },
   headerLine: {
     flex: 1,
