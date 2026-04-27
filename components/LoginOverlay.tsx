@@ -29,6 +29,7 @@ const BTN_RADIUS    = 100
 const BORDER_NORMAL = '#4f4f4f'
 const BORDER_ERROR  = '#ff5900'
 const ERROR_RED     = '#ea4335'
+const ACCENT        = '#00FF87'
 
 function CloseIcon() {
   return (
@@ -43,37 +44,38 @@ interface LoginOverlayProps {
   onClose: () => void
 }
 
+type Step = 'email' | 'code'
+
 export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
   const router  = useRouter()
   const insets  = useSafeAreaInsets()
   const { signIn, setActive, isLoaded } = useSignIn()
   const clerk = useClerk()
 
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [step,    setStep]    = useState<Step>('email')
+  const [email,   setEmail]   = useState('')
+  const [code,    setCode]    = useState('')
+  const [error,   setError]   = useState('')
+  const [loading, setLoading] = useState(false)
+  const [resent,  setResent]  = useState(false)
   // Keep mounted during close animation
   const [mounted, setMounted] = useState(false)
 
-  const translateY      = useRef(new Animated.Value(H)).current
-  const backdropOpacity  = useRef(new Animated.Value(0)).current
+  const translateY     = useRef(new Animated.Value(H)).current
+  const backdropOpacity = useRef(new Animated.Value(0)).current
 
-  // ─── Swipe-to-dismiss on drag handle ────────────────────────────────────────
+  // ─── Swipe-to-dismiss on drag handle ──────────────────────────────────────
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, { dy }) => dy > 2,
       onPanResponderMove: (_, { dy }) => {
-        // Only allow dragging downward
         if (dy > 0) translateY.setValue(dy)
       },
       onPanResponderRelease: (_, { dy, vy }) => {
         if (dy > 100 || vy > 0.5) {
-          // Crossed threshold — close
           onClose()
         } else {
-          // Snap back
           Animated.spring(translateY, {
             toValue: 0,
             bounciness: 4,
@@ -89,7 +91,9 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
     if (visible) {
       setMounted(true)
       setError('')
-      // Fade backdrop in and slide panel up simultaneously
+      setStep('email')
+      setEmail('')
+      setCode('')
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
@@ -104,7 +108,6 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
         }),
       ]).start()
     } else {
-      // Fade backdrop out and slide panel down, then unmount
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
@@ -122,38 +125,101 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
 
   if (!mounted) return null
 
-  const hasError = !!error
-
-  const handleLogin = async () => {
-    if (!isLoaded) return
-    setLoading(true)
-    setError('')
+  // ─── Step 1: Request OTP code ────────────────────────────────────────────
+  const handleRequestCode = async () => {
+    if (!isLoaded || !signIn) return
+    const trimmed = email.trim().toLowerCase()
+    if (!trimmed) { setError('Please enter your email address.'); return }
+    setLoading(true); setError('')
     try {
-      const result = await signIn.create({ identifier: email, password })
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
-        // Gate: only allow users who completed onboarding (have a profile)
-        const user = clerk.user
-        if (!user?.unsafeMetadata?.onboarded) {
-          await clerk.signOut()
-          setError('No account found. Please tap \'CREATE AN ACCOUNT\' to register first.')
-          setLoading(false)
-          return
-        }
-        router.replace('/(tabs)/feed')
-      }
+      await signIn.create({
+        identifier: trimmed,
+        strategy: 'email_code',
+      })
+      setStep('code')
     } catch (err: any) {
-      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message
-      setError(msg || 'Incorrect email or password, please try again')
+      const code = err?.errors?.[0]?.code ?? ''
+      if (code === 'form_identifier_not_found') {
+        setError("We couldn't find an account with that email. Please check and try again.")
+      } else if (code === 'too_many_requests') {
+        setError('Too many attempts. Please wait a moment and try again.')
+      } else {
+        setError(
+          err?.errors?.[0]?.longMessage ??
+          err?.errors?.[0]?.message ??
+          'Something went wrong. Please try again.'
+        )
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // ─── Step 2: Verify OTP code ─────────────────────────────────────────────
+  const handleVerifyCode = async () => {
+    if (!isLoaded || !signIn) return
+    if (!code.trim()) { setError('Please enter the 6-digit code from your email.'); return }
+    setLoading(true); setError('')
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'email_code',
+        code: code.trim(),
+      })
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        // Gate: only allow users who completed onboarding
+        const user = clerk.user
+        if (!user?.unsafeMetadata?.onboarded) {
+          await clerk.signOut()
+          setError("No account found. Please tap 'CREATE AN ACCOUNT' to register first.")
+          setStep('email')
+          setCode('')
+          setLoading(false)
+          return
+        }
+        router.replace('/(tabs)/feed')
+      } else {
+        setError('Verification incomplete. Please try again.')
+      }
+    } catch (err: any) {
+      const errCode = err?.errors?.[0]?.code ?? ''
+      if (errCode === 'form_code_incorrect') {
+        setError('Incorrect code. Please check your email and try again.')
+      } else if (errCode === 'verification_expired') {
+        setError('The code has expired. Please go back and request a new one.')
+      } else {
+        setError(
+          err?.errors?.[0]?.longMessage ??
+          err?.errors?.[0]?.message ??
+          'Something went wrong. Please try again.'
+        )
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Resend code ─────────────────────────────────────────────────────────
+  const handleResend = async () => {
+    if (!isLoaded || !signIn) return
+    try {
+      await signIn.create({
+        identifier: email.trim().toLowerCase(),
+        strategy: 'email_code',
+      })
+      setResent(true)
+      setCode('')
+      setError('')
+      setTimeout(() => setResent(false), 4000)
+    } catch {}
+  }
+
+  const hasError = !!error
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
 
-      {/* ── Backdrop: fades in, tap to dismiss ── */}
+      {/* ── Backdrop ── */}
       <TouchableWithoutFeedback onPress={onClose}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <BlurView
@@ -164,7 +230,7 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
         </Animated.View>
       </TouchableWithoutFeedback>
 
-      {/* ── Bottom sheet: slides up ── */}
+      {/* ── Bottom sheet ── */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'position' : undefined}
         style={styles.sheetWrapper}
@@ -177,7 +243,7 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
             { transform: [{ translateY }] },
           ]}
         >
-          {/* Drag handle — centred, pan to dismiss */}
+          {/* Drag handle */}
           <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
             <View style={styles.dragHandle} />
           </View>
@@ -191,53 +257,92 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
             </Pressable>
           </View>
 
-          {/* Email */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput
-              style={[styles.input, { borderColor: hasError ? BORDER_ERROR : BORDER_NORMAL }]}
-              placeholder="you@example.com"
-              placeholderTextColor="#909090"
-              value={email}
-              onChangeText={v => { setEmail(v); setError('') }}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              returnKeyType="next"
-            />
-          </View>
+          {step === 'email' ? (
+            <>
+              {/* ── Step 1: Email ── */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Email address</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: hasError ? BORDER_ERROR : BORDER_NORMAL }]}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#909090"
+                  value={email}
+                  onChangeText={v => { setEmail(v); setError('') }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  returnKeyType="done"
+                  onSubmitEditing={handleRequestCode}
+                />
+              </View>
 
-          {/* Password */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Password</Text>
-            <TextInput
-              style={[styles.input, { borderColor: hasError ? BORDER_ERROR : BORDER_NORMAL }]}
-              placeholderTextColor="#909090"
-              value={password}
-              onChangeText={v => { setPassword(v); setError('') }}
-              secureTextEntry
-              returnKeyType="done"
-              onSubmitEditing={handleLogin}
-            />
-          </View>
+              {hasError && <Text style={styles.errorText}>{error}</Text>}
 
-          {/* Error */}
-          {hasError && (
-            <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+                onPress={handleRequestCode}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                {loading
+                  ? <ActivityIndicator color="#000000" />
+                  : <Text style={styles.loginBtnText}>SEND LOGIN CODE</Text>
+                }
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* ── Step 2: OTP Code ── */}
+              <View>
+                <Text style={styles.introText}>
+                  We've sent a 6-digit code to{' '}
+                  <Text style={styles.emailHighlight}>{email}</Text>
+                </Text>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Verification code</Text>
+                <TextInput
+                  style={[styles.input, styles.codeInput, { borderColor: hasError ? BORDER_ERROR : BORDER_NORMAL }]}
+                  placeholder="000000"
+                  placeholderTextColor="#909090"
+                  value={code}
+                  onChangeText={v => { setCode(v); setError('') }}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleVerifyCode}
+                />
+              </View>
+
+              {hasError && <Text style={styles.errorText}>{error}</Text>}
+
+              <TouchableOpacity
+                style={[styles.loginBtn, (loading || !code) && styles.loginBtnDisabled]}
+                onPress={handleVerifyCode}
+                activeOpacity={0.85}
+                disabled={loading || !code}
+              >
+                {loading
+                  ? <ActivityIndicator color="#000000" />
+                  : <Text style={styles.loginBtnText}>VERIFY & LOGIN</Text>
+                }
+              </TouchableOpacity>
+
+              {/* Back + Resend row */}
+              <View style={styles.linkRow}>
+                <TouchableOpacity onPress={() => { setStep('email'); setCode(''); setError('') }}>
+                  <Text style={styles.link}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleResend} disabled={resent}>
+                  <Text style={[styles.link, resent && styles.linkSent]}>
+                    {resent ? 'Sent ✓' : 'Resend code'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
-
-          {/* CTA */}
-          <TouchableOpacity
-            style={styles.loginBtn}
-            onPress={handleLogin}
-            activeOpacity={0.85}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#000000" />
-              : <Text style={styles.loginBtnText}>LOGIN</Text>
-            }
-          </TouchableOpacity>
 
         </Animated.View>
       </KeyboardAvoidingView>
@@ -263,7 +368,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: PANEL_PADDING,
     paddingTop: 60,
-    gap: 32,
+    gap: 24,
     shadowColor: '#000',
     shadowOpacity: 0.44,
     shadowRadius: 24,
@@ -275,7 +380,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingVertical: 8,   // extra hit area
+    paddingVertical: 8,
   },
   dragHandle: {
     width: 52,
@@ -300,6 +405,16 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: '#ffffff',
   },
+  introText: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: 22,
+    letterSpacing: 0.2,
+  },
+  emailHighlight: {
+    color: ACCENT,
+    fontWeight: '600',
+  },
   fieldGroup: {
     gap: 5,
   },
@@ -318,24 +433,49 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.32,
   },
+  codeInput: {
+    fontSize: 24,
+    letterSpacing: 10,
+    textAlign: 'center',
+  },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: ERROR_RED,
     textAlign: 'center',
-    letterSpacing: 0.32,
-    marginTop: -16,
+    letterSpacing: 0.2,
+    lineHeight: 20,
+    marginTop: -8,
   },
   loginBtn: {
     height: BTN_H,
-    backgroundColor: '#00FF87',
+    backgroundColor: ACCENT,
     borderRadius: BTN_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loginBtnDisabled: {
+    opacity: 0.5,
   },
   loginBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#000000',
     letterSpacing: 0.28,
+    textTransform: 'uppercase',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: -8,
+  },
+  link: {
+    fontSize: 15,
+    color: ACCENT,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  linkSent: {
+    opacity: 0.5,
   },
 })

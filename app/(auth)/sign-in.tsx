@@ -1,4 +1,4 @@
-import { useSignIn } from '@clerk/clerk-expo'
+import { useSignIn, useClerk } from '@clerk/clerk-expo'
 import { useRouter, useNavigation } from 'expo-router'
 import { useState } from 'react'
 import {
@@ -14,9 +14,9 @@ import { Colors } from '@/constants/theme'
 
 const H_PAD = 20
 
-// ─── Gradient title — matches onboarding design language ─────────────────────
+// ─── Gradient title ───────────────────────────────────────────────────────────
 const TITLE_SIZE = 50
-const TITLE_LH   = TITLE_SIZE * 1.2   // 60px
+const TITLE_LH   = TITLE_SIZE * 1.2
 const TITLE_GAP  = -8
 
 function GradientTitle({ text }: { text: string }) {
@@ -71,57 +71,108 @@ const gt = StyleSheet.create({
   },
 })
 
+type Step = 'email' | 'code'
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
+  const clerk      = useClerk()
   const router     = useRouter()
   const navigation = useNavigation()
   const insets     = useSafeAreaInsets()
 
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
+  const [step,    setStep]    = useState<Step>('email')
+  const [email,   setEmail]   = useState('')
+  const [code,    setCode]    = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
+  const [resent,  setResent]  = useState(false)
 
-  const WRONG_CREDS = "The login details you've entered are incorrect, please try again."
-
-  // Map Clerk error codes to a single friendly message
-  const friendlyError = (err: any): string => {
-    const code = err?.errors?.[0]?.code ?? ''
-    switch (code) {
-      case 'form_identifier_not_found':
-      case 'form_password_incorrect':
-      case 'form_identifier_exists':
-        return WRONG_CREDS
-      case 'too_many_requests':
-        return 'Too many attempts. Please wait a moment and try again.'
-      case 'session_exists':
-        return 'You are already signed in.'
-      default:
-        return err?.errors?.[0]?.longMessage
-          ?? err?.errors?.[0]?.message
-          ?? WRONG_CREDS
-    }
-  }
-
-  const handleSignIn = async () => {
-    if (!isLoaded) return
-    if (!email.trim())  { setError('Please enter your email address.'); return }
-    if (!password)      { setError('Please enter your password.'); return }
+  // ─── Step 1: Request OTP ────────────────────────────────────────────────
+  const handleRequestCode = async () => {
+    if (!isLoaded || !signIn) return
+    const trimmed = email.trim().toLowerCase()
+    if (!trimmed) { setError('Please enter your email address.'); return }
     setLoading(true); setError('')
     try {
-      const result = await signIn.create({ identifier: email.trim().toLowerCase(), password })
-      await setActive({ session: result.createdSessionId })
+      await signIn.create({ identifier: trimmed, strategy: 'email_code' })
+      setStep('code')
     } catch (err: any) {
-      setError(friendlyError(err))
+      const errCode = err?.errors?.[0]?.code ?? ''
+      if (errCode === 'form_identifier_not_found') {
+        setError("We couldn't find an account with that email.")
+      } else if (errCode === 'too_many_requests') {
+        setError('Too many attempts. Please wait a moment.')
+      } else {
+        setError(
+          err?.errors?.[0]?.longMessage ??
+          err?.errors?.[0]?.message ??
+          'Something went wrong. Please try again.'
+        )
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // ─── Step 2: Verify OTP ─────────────────────────────────────────────────
+  const handleVerifyCode = async () => {
+    if (!isLoaded || !signIn) return
+    if (!code.trim()) { setError('Please enter the 6-digit code from your email.'); return }
+    setLoading(true); setError('')
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'email_code',
+        code: code.trim(),
+      })
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId })
+        const user = clerk.user
+        if (!user?.unsafeMetadata?.onboarded) {
+          await clerk.signOut()
+          setError("No account found. Please create an account first.")
+          setStep('email'); setCode('')
+          setLoading(false)
+          return
+        }
+        router.replace('/(tabs)/feed')
+      } else {
+        setError('Verification incomplete. Please try again.')
+      }
+    } catch (err: any) {
+      const errCode = err?.errors?.[0]?.code ?? ''
+      if (errCode === 'form_code_incorrect') {
+        setError('Incorrect code. Please check your email and try again.')
+      } else if (errCode === 'verification_expired') {
+        setError('The code has expired. Please go back and request a new one.')
+      } else {
+        setError(
+          err?.errors?.[0]?.longMessage ??
+          err?.errors?.[0]?.message ??
+          'Something went wrong. Please try again.'
+        )
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (!isLoaded || !signIn) return
+    try {
+      await signIn.create({ identifier: email.trim().toLowerCase(), strategy: 'email_code' })
+      setResent(true); setCode(''); setError('')
+      setTimeout(() => setResent(false), 4000)
+    } catch {}
+  }
+
   const handleBack = () => {
-    navigation.setOptions({ animation: 'fade' })
-    router.back()
+    if (step === 'code') {
+      setStep('email'); setCode(''); setError('')
+    } else {
+      navigation.setOptions({ animation: 'fade' })
+      router.back()
+    }
   }
 
   return (
@@ -148,69 +199,96 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Gradient title ─────────────────────────────────────────── */}
+          {/* Title */}
           <View style={st.titleBlock}>
             <GradientTitle text={'WELCOME\nBACK'} />
           </View>
 
-          {/* ── Form fields ────────────────────────────────────────────── */}
-          <View style={st.fields}>
-            <View style={st.field}>
-              <Text style={st.label}>Email address</Text>
-              <TextInput
-                style={[st.input, !!error && st.inputError]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor="#909090"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={st.field}>
-              <Text style={st.label}>Password</Text>
-              <TextInput
-                style={[st.input, !!error && st.inputError]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#909090"
-                secureTextEntry
-              />
-            </View>
-
-            {!!error && (
-              <View style={st.errorCard}>
-                <Text style={st.errorText}>{error}</Text>
+          {step === 'email' ? (
+            /* ── Step 1: Email ── */
+            <View style={st.fields}>
+              <View style={st.field}>
+                <Text style={st.label}>Email address</Text>
+                <TextInput
+                  style={[st.input, !!error && st.inputError]}
+                  value={email}
+                  onChangeText={v => { setEmail(v); setError('') }}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#909090"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={handleRequestCode}
+                />
               </View>
-            )}
-          </View>
+              {!!error && (
+                <View style={st.errorCard}>
+                  <Text style={st.errorText}>{error}</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            /* ── Step 2: OTP Code ── */
+            <View style={st.fields}>
+              <Text style={st.introText}>
+                We've sent a 6-digit code to{' '}
+                <Text style={st.emailHighlight}>{email}</Text>
+              </Text>
+              <View style={st.field}>
+                <Text style={st.label}>Verification code</Text>
+                <TextInput
+                  style={[st.input, st.codeInput, !!error && st.inputError]}
+                  value={code}
+                  onChangeText={v => { setCode(v); setError('') }}
+                  placeholder="000000"
+                  placeholderTextColor="#909090"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleVerifyCode}
+                />
+              </View>
+              {!!error && (
+                <View style={st.errorCard}>
+                  <Text style={st.errorText}>{error}</Text>
+                </View>
+              )}
+            </View>
+          )}
 
-          {/* Flex spacer — pushes CTA to bottom on short screens */}
           <View style={{ flex: 1, minHeight: 36 }} />
 
-          {/* ── CTA group ──────────────────────────────────────────────── */}
+          {/* CTA group */}
           <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 66, 90) }]}>
             <TouchableOpacity
-              style={[st.btn, loading && st.btnDisabled]}
-              onPress={handleSignIn}
-              disabled={loading}
+              style={[st.btn, (loading || (step === 'code' && !code)) && st.btnDisabled]}
+              onPress={step === 'email' ? handleRequestCode : handleVerifyCode}
+              disabled={loading || (step === 'code' && !code)}
               activeOpacity={0.85}
             >
               {loading
                 ? <ActivityIndicator color="#000" />
-                : <Text style={st.btnText}>LOGIN</Text>}
+                : <Text style={st.btnText}>{step === 'email' ? 'SEND LOGIN CODE' : 'VERIFY & LOGIN'}</Text>
+              }
             </TouchableOpacity>
 
             <View style={st.linkRow}>
               <TouchableOpacity onPress={handleBack}>
-                <Text style={st.link}>Back</Text>
+                <Text style={st.link}>{step === 'code' ? '← Back' : 'Back'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(auth)/onboarding')}>
-                <Text style={st.link}>Create an account</Text>
-              </TouchableOpacity>
+              {step === 'code' ? (
+                <TouchableOpacity onPress={handleResend} disabled={resent}>
+                  <Text style={[st.link, resent && { opacity: 0.5 }]}>
+                    {resent ? 'Sent ✓' : 'Resend code'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => router.replace('/(auth)/onboarding')}>
+                  <Text style={st.link}>Create an account</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -221,11 +299,13 @@ export default function SignInScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
-  scroll:     { flexGrow: 1, paddingHorizontal: H_PAD },
-  titleBlock: { marginBottom: 40 },
-  fields:     { gap: 24 },
-  field:      { gap: 5 },
-  label:      { fontSize: 16, color: '#fff', letterSpacing: 0.32 },
+  scroll:         { flexGrow: 1, paddingHorizontal: H_PAD },
+  titleBlock:     { marginBottom: 40 },
+  fields:         { gap: 24 },
+  field:          { gap: 5 },
+  label:          { fontSize: 16, color: '#fff', letterSpacing: 0.32 },
+  introText:      { fontSize: 15, color: 'rgba(255,255,255,0.7)', lineHeight: 22 },
+  emailHighlight: { color: Colors.brand, fontWeight: '600' },
   input: {
     height: 59,
     backgroundColor: 'rgba(0,0,0,0.31)',
@@ -236,12 +316,15 @@ const st = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
   },
-  errorCard: {
-    gap: 8,
+  codeInput: {
+    fontSize: 24,
+    letterSpacing: 10,
+    textAlign: 'center',
   },
-  errorText:   { color: Colors.error, fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  inputError:  { borderColor: Colors.error },
-  ctas:    { gap: 16 },
+  errorCard:    { gap: 8 },
+  errorText:    { color: Colors.error, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  inputError:   { borderColor: Colors.error },
+  ctas:         { gap: 16 },
   btn: {
     height: 57,
     backgroundColor: Colors.brand,
@@ -249,7 +332,7 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnDisabled: { opacity: 0.6 },
+  btnDisabled:  { opacity: 0.5 },
   btnText: {
     fontSize: 14,
     fontWeight: '700',
