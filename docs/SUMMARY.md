@@ -1,45 +1,31 @@
-# Summary
+# Tranxfer Market
 
 ## Introduction
+* [What is Tranxfer Market?](introduction/what-is-tranxfer-market.md)
+* [Vision & Principles](introduction/vision-and-principles.md)
 
-* [Overview](README.md)
+## Product
+* [User Types & Personas](product/user-types-and-personas.md)
+* [Core User Journeys](product/core-user-journeys.md)
+* [Feature Ideas Log](product/feature-ideas-log.md)
 
-## Getting Started
+## Technical Specification
+* [Tech Stack & Conventions](technical-specification/tech-stack-and-conventions.md)
+* [What Has Been Built](technical-specification/what-has-been-built.md)
+* [Phase 1 — Core Loop](technical-specification/phase-1-core-loop.md)
+* [Phase 2 — Scout Tools](technical-specification/phase-2-scout-tools.md)
+* [Phase 3 — Engagement & Retention](technical-specification/phase-3-engagement-and-retention.md)
+* [Phase 4 — Fantasy Layer](technical-specification/phase-4-fantasy-layer.md)
+* [Player Card & Endorsement System](technical-specification/player-card-and-endorsement-system.md)
 
-* [Prerequisites](getting-started/prerequisites.md)
-* [Local Setup](getting-started/local-setup.md)
-* [Environment Variables](getting-started/environment-variables.md)
+## Dev Instructions
+* [Immediate Action Items](dev-instructions.md)
 
-## Architecture
+## Design
+* [Design System & Tokens](design/design-system-and-tokens.md)
+* [Player Card — Tiers & Visual Language](design/player-card-tiers-and-visual-language.md)
 
-* [Tech Stack](architecture/tech-stack.md)
-* [Folder Structure](architecture/folder-structure.md)
-* [Design System](architecture/design-system.md)
-
-## Authentication & Onboarding
-
-* [Overview](auth/overview.md)
-* [Sign-In Flow](auth/sign-in-flow.md)
-* [Onboarding Wizard](auth/onboarding-wizard.md)
-* [Auth Guard](auth/auth-guard.md)
-
-## Features
-
-* [Feed](features/feed.md)
-* [Search](features/search.md)
-* [Messages](features/messages.md)
-* [Notifications](features/notifications.md)
-* [Profile](features/profile.md)
-
-## Database
-
-* [Schema Overview](database/schema-overview.md)
-* [Migrations](database/migrations.md)
-* [RLS Policies](database/rls-policies.md)
-
-## Roadmap
-
-* [Phase 1 — Core Loop](roadmap/phase-1.md)
-* [Phase 2 — Scout Features](roadmap/phase-2.md)
-* [Phase 3 — Engagement](roadmap/phase-3.md)
-* [Phase 4 — Fantasy Layer](roadmap/phase-4.md)
+## Growth & Strategy
+* [Acquisition Model](growth-strategy/acquisition-model.md)
+* [The Endorsement Growth Loop](growth-strategy/endorsement-growth-loop.md)
+* [Two-Sided Marketplace Considerations](growth-strategy/two-sided-marketplace-considerations.md)
