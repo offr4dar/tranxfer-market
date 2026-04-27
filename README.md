@@ -1,313 +1,199 @@
-# Tranxfer Market — Database Schema
+# Tranxfer Market — Mobile App
 
-> Two-sided football marketplace: Players ↔ Clubs/Scouts/Agents  
-> Stack: PostgreSQL (Supabase) · Auth: Clerk · Payments: Stripe
+A React Native (Expo) mobile marketplace for football transfers. Players, agents, and clubs can discover each other, send connection requests, and manage conversations — all behind an authenticated, role-based onboarding flow.
 
 ---
 
-## Schema Diagram
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | [Expo](https://expo.dev) ~54 / [Expo Router](https://expo.github.io/router) ~6 (file-based routing) |
+| Language | TypeScript |
+| Authentication | [Clerk](https://clerk.com) (`@clerk/clerk-expo` ^2) — email + OTP verification |
+| Database | [Supabase](https://supabase.com) (`@supabase/supabase-js` ^2) — Postgres with RLS |
+| Navigation | Expo Router Stack + custom `FloatingTabBar` pill |
+| Animations | `react-native-reanimated` ~4, `expo-blur` |
+| Fonts | Anton (via `@expo-google-fonts/anton`) |
+| Styling | Vanilla React Native `StyleSheet` + centralised design tokens (`constants/theme.ts`) |
+
+---
+
+## What Has Been Built
+
+### Authentication & Onboarding
+- **Splash screen** (`app/splash.tsx`) — animated brand intro that auto-advances or can be tapped through.
+- **Welcome screen** (`app/(auth)/welcome.tsx`) — entry point for unauthenticated users with "Get Started" / "Sign In" CTAs.
+- **Sign-in screen** (`app/(auth)/sign-in.tsx`) — email + Clerk OTP flow.
+- **Email verification** (`app/(auth)/verify-email.tsx`) — OTP code entry with resend support.
+- **Multi-step onboarding wizard** (`app/(auth)/onboarding.tsx`) — role-selection (Player / Agent / Club) followed by role-specific profile fields (name, age, position, nationality, postcode autocomplete, etc.). Profile data is written to Supabase on completion.
+- **Auth guard** (`app/_layout.tsx → AuthGuard`) — redirects unauthenticated users to `/(auth)/welcome` and signed-in users away from auth screens automatically.
+- **Token cache** — Clerk tokens persisted via `expo-secure-store`.
+
+### Main App (Tabs)
+All tab screens share the `ScreenBackground` texture and `ScreenHeader` global header.
+
+| Tab | File | Status |
+|---|---|---|
+| Feed | `app/(tabs)/feed.tsx` | ✅ Player cards with filter toggle |
+| Search | `app/(tabs)/search.tsx` | ✅ Search interface |
+| Messages | `app/(tabs)/messages.tsx` | ✅ Conversation list |
+| Notifications | `app/(tabs)/notifications.tsx` | ✅ Notification list |
+| Profile | `app/(tabs)/profile.tsx` | ✅ User profile + sign-out |
+| Conversation detail | `app/(tabs)/conversation/[id].tsx` | ✅ Dynamic conversation thread |
+
+### UI Components
+
+| Component | Purpose |
+|---|---|
+| `ScreenBackground` | Full-screen dark background with tiled texture overlay, shared across all tab screens |
+| `ScreenHeader` | Global top bar with logo + action icons, used on every tab |
+| `FloatingTabBar` | Custom floating pill navigation replacing the default tab bar |
+| `LoginOverlay` | Auth-gate overlay shown over tab screens if the profile is incomplete |
+| `PlayerCard` | Card component for displaying a player/agent/club in the feed |
+| `FilterToggle` | Segmented filter buttons (e.g. Player / Agent / Club) |
+| `ConfirmCancelModal` | Reusable modal for destructive action confirmations |
+| `components/icons/TabIcons.tsx` | SVG icon set for the floating tab bar |
+
+### Design System (`constants/theme.ts`)
+```ts
+Colors.brand          = '#00FF87'   // Primary green accent
+Colors.background     = '#0A0F1E'   // Deep navy background
+Colors.surface        = '#0D1526'
+Colors.surfaceElevated= '#111827'
+```
+Spacing and border-radius scales are also defined here (`Spacing`, `Radius`).
+
+### Database (Supabase)
+
+Eight migrations applied in order:
+
+| # | File | Purpose |
+|---|---|---|
+| 001 | `initial_schema.sql` | Core tables: `profiles`, `player_profiles`, `agent_profiles`, `club_profiles` |
+| 002 | `agent_profiles_enhance.sql` | Enhanced agent fields |
+| 003 | `scout_fields_merged.sql` | Scout/agent field consolidation |
+| 004 | `drop_agent_age.sql` | Removes deprecated `age` column from agent profiles |
+| 005 | `messages.sql` | `messages` + `conversations` tables |
+| 006 | `notifications.sql` | `notifications` table |
+| 007 | `select_policies.sql` | Basic RLS SELECT policies |
+| 008 | `mobile_rls_policies.sql` | Full anon-client read/write RLS for mobile |
+
+### Utilities (`lib/`)
+
+| File | Purpose |
+|---|---|
+| `supabase.ts` | Supabase client singleton |
+| `pendingProfile.ts` | In-memory store that carries onboarding wizard state across steps before committing to Supabase |
+| `uk-outcodes.ts` | Lookup table for UK postcode outward codes (used in postcode autocomplete during onboarding) |
+
+---
+
+## Folder Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TRANXFER MARKET — ERD                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                                ┌──────────────┐
-                                │    USERS     │ ← synced from Clerk
-                                │──────────────│
-                                │ id (PK)      │
-                                │ clerk_user_id│
-                                │ email        │
-                                │ account_type │ ← player|club|scout|agent
-                                │ is_active    │
-                                └──────┬───────┘
-                                       │ 1
-                    ┌──────────────────┼──────────────────┐
-                    │                  │                   │
-                    │ 0..1             │ 0..1              │ many
-                    ▼                  ▼                   ▼
-          ┌──────────────────┐  ┌──────────────┐  ┌────────────────────┐
-          │  PLAYER_PROFILES │  │SUBSCRIPTIONS │  │ORGANISATION_MEMBERS│
-          │──────────────────│  │──────────────│  │────────────────────│
-          │ id (PK)          │  │ id (PK)      │  │ user_id (FK)       │
-          │ user_id (FK)     │  │ user_id (FK) │  │ organisation_id(FK)│
-          │ display_name     │  │ org_id (FK)  │  │ role               │
-          │ primary_position │  │ tier         │  └────────┬───────────┘
-          │ contract_status  │  │ status       │           │
-          │ is_featured      │  │ stripe_sub_id│           │ many
-          │ profile_comp_%   │  └──────────────┘           ▼
-          └────────┬─────────┘                   ┌─────────────────────┐
-                   │                             │   ORGANISATIONS     │
-          ┌────────┼────────────────────────┐    │─────────────────────│
-          │        │                        │    │ id (PK)             │
-          │ 1..n   │ 1..n         1..n      │    │ name                │
-          ▼        ▼              ▼         │    │ org_type            │
-  ┌──────────┐ ┌──────────┐ ┌──────────┐   │    │ verified_status     │
-  │  MEDIA   │ │CAREER    │ │PROFILE   │   │    │ stripe_customer_id  │
-  │──────────│ │HISTORY   │ │VIEWS     │   │    └─────────────────────┘
-  │ id (PK)  │ │──────────│ │──────────│   │
-  │ player_id│ │ player_id│ │ player_id│   │
-  │ media_type│ │ club_name│ │ viewer_  │   │
-  │ url      │ │ league   │ │ user_id  │   │
-  └──────────┘ │ goals    │ │ viewed_at│   │
-               │ assists  │ └──────────┘   │
-               └──────────┘                │
-                                           │
-         ┌─────────────────────────────────┘
-         │
-         │  Clubs contact players (gated by subscription)
-         ▼
-┌─────────────────┐       ┌──────────────────┐
-│    CONTACTS     │──────▶│  CONVERSATIONS   │
-│─────────────────│       │──────────────────│
-│ initiator_user  │       │ player_user_id   │
-│ initiator_org   │       │ club_user_id     │
-│ player_id (FK)  │       │ last_message_at  │
-│ status          │       └────────┬─────────┘
-└─────────────────┘                │ 1..n
-                                   ▼
-                          ┌────────────────┐
-                          │    MESSAGES    │
-                          │────────────────│
-                          │ conversation_id│
-                          │ sender_id      │
-                          │ body           │
-                          │ status         │
-                          └────────────────┘
-
-┌──────────────┐       ┌───────────────────┐
-│  SHORTLISTS  │──────▶│ SHORTLIST_PLAYERS │
-│──────────────│       │───────────────────│
-│ owner_user_id│       │ shortlist_id (FK) │
-│ owner_org_id │       │ player_id (FK)    │
-│ name         │       │ notes (private)   │
-│ is_private   │       │ rating (1-5)      │
-└──────────────┘       └───────────────────┘
-
-┌──────────────────┐    ┌──────────────┐
-│  PLAYER_BOOSTS   │    │  AUDIT_LOG   │
-│──────────────────│    │──────────────│
-│ player_id (FK)   │    │ actor_id     │
-│ boost_type       │    │ action       │
-│ ends_at          │    │ target_type  │
-│ stripe_payment_id│    │ old/new vals │
-└──────────────────┘    └──────────────┘
+tranxfer-market/
+├── app/
+│   ├── _layout.tsx                  # Root layout — ClerkProvider, AuthGuard, Stack navigator
+│   ├── index.tsx                    # Entry redirect (→ splash or tabs)
+│   ├── splash.tsx                   # Animated splash / brand intro screen
+│   ├── (auth)/
+│   │   ├── _layout.tsx
+│   │   ├── welcome.tsx              # Welcome / landing screen
+│   │   ├── sign-in.tsx              # Email sign-in + OTP request
+│   │   ├── verify-email.tsx         # OTP code verification
+│   │   └── onboarding.tsx           # Multi-step role-based onboarding wizard
+│   └── (tabs)/
+│       ├── _layout.tsx              # Tab navigator layout
+│       ├── feed.tsx                 # Main player/agent/club feed
+│       ├── search.tsx               # Search screen
+│       ├── messages.tsx             # Conversations list
+│       ├── notifications.tsx        # Notifications
+│       ├── profile.tsx              # User profile
+│       └── conversation/
+│           └── [id].tsx             # Dynamic conversation thread
+│
+├── components/
+│   ├── ScreenBackground.tsx         # Shared dark + texture background
+│   ├── ScreenHeader.tsx             # Global header bar (logo + icons)
+│   ├── FloatingTabBar.tsx           # Custom floating pill tab navigator
+│   ├── LoginOverlay.tsx             # Auth-gate overlay for incomplete profiles
+│   ├── PlayerCard.tsx               # Feed card for a player/agent/club
+│   ├── FilterToggle.tsx             # Segmented role-filter buttons
+│   ├── ConfirmCancelModal.tsx       # Reusable confirmation modal
+│   ├── icons/
+│   │   └── TabIcons.tsx             # SVG icons for the tab bar
+│   └── shared/                      # (reserved for future shared components)
+│
+├── constants/
+│   └── theme.ts                     # Colours, spacing, and radius tokens
+│
+├── lib/
+│   ├── supabase.ts                  # Supabase client
+│   ├── pendingProfile.ts            # Onboarding in-memory state store
+│   └── uk-outcodes.ts               # UK postcode outward-code lookup
+│
+├── types/
+│   └── index.ts                     # Shared TypeScript types
+│
+├── assets/
+│   ├── icon.png / adaptive-icon.png / splash-icon.png / favicon.png
+│   ├── splash-bg.png                # Full-screen splash background
+│   ├── bg_onboarding.jpg            # Onboarding background image
+│   ├── Frame 44.jpg                 # Background texture (used in ScreenBackground)
+│   ├── player_svg.svg
+│   ├── agent_svg.svg
+│   └── club_svg.svg
+│
+├── supabase/
+│   └── migrations/
+│       ├── 001_initial_schema.sql
+│       ├── 002_agent_profiles_enhance.sql
+│       ├── 003_scout_fields_merged.sql
+│       ├── 004_drop_agent_age.sql
+│       ├── 005_messages.sql
+│       ├── 006_notifications.sql
+│       ├── 007_select_policies.sql
+│       └── 008_mobile_rls_policies.sql
+│
+├── scripts/                         # Utility / maintenance scripts
+├── stubs/                           # Dev stubs / seed data
+├── schema.sql                       # Full DB schema snapshot
+├── app.json                         # Expo app config
+├── metro.config.js                  # Metro bundler config
+├── tsconfig.json
+├── package.json
+└── .env.local                       # Local env vars (not committed)
 ```
 
 ---
 
-## Table Summary
+## Environment Variables
 
-| Table | Purpose | Rows (est.) |
-|-------|---------|-------------|
-| `users` | Clerk-synced user base | Medium |
-| `player_profiles` | Player football identity | Medium |
-| `player_career_history` | Structured career records | High |
-| `organisations` | Clubs, agencies, scout networks | Low |
-| `organisation_members` | User → org membership | Low |
-| `media` | Videos, photos, documents | High |
-| `subscriptions` | Stripe subscription tracking | Low |
-| `player_boosts` | Paid visibility boosts | Low |
-| `contacts` | Club → player contact requests | Medium |
-| `shortlists` | Named player shortlists | Low |
-| `shortlist_players` | Players within shortlists | Medium |
-| `profile_views` | View analytics events | Very High |
-| `conversations` | Message threads | Medium |
-| `messages` | Individual messages | High |
-| `notifications` | In-app notifications | High |
-| `audit_log` | Admin audit trail | High |
+Copy `.env.example` to `.env.local` and fill in:
+
+```
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=   # Clerk publishable key
+EXPO_PUBLIC_SUPABASE_URL=            # Supabase project URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY=       # Supabase anon key
+```
 
 ---
 
-## Setup Instructions
-
-### 1. Prerequisites
-- Supabase project (PostgreSQL 15+)
-- Clerk account with webhook configured
-- Stripe account
-
-### 2. Run the Schema
-
-In Supabase SQL Editor or via `psql`:
+## Running Locally
 
 ```bash
-psql "$DATABASE_URL" -f schema.sql
+# Install dependencies
+npm install
+
+# Start the Expo dev server
+npm start
+
+# Run on iOS simulator
+npm run ios
+
+# Run on Android emulator
+npm run android
 ```
 
-Or paste directly into **Supabase Studio → SQL Editor → New Query**.
-
-### 3. Configure Supabase Auth with Clerk
-
-Supabase uses JWTs — configure Clerk as the JWT provider:
-
-1. In Clerk Dashboard → **JWT Templates** → create a new Supabase template
-2. Set the signing key to your Supabase JWT secret
-3. Add claim: `"sub"` = `"{{user.id}}"` (Clerk user ID)
-4. In Supabase: **Settings → Auth → JWT Secret** — paste your Clerk signing key
-
-The `auth_user_id()` SQL function maps `auth.jwt() ->> 'sub'` → internal `users.id`.
-
-### 4. Configure Clerk Webhook
-
-1. Clerk Dashboard → **Webhooks** → Add endpoint
-2. URL: `https://yourdomain.com/api/webhooks/clerk`
-3. Events to subscribe:
-   - `user.created`
-   - `user.updated`
-   - `user.deleted`
-   - `session.created`
-4. Copy the **Signing Secret** → set as `CLERK_WEBHOOK_SECRET` env var
-
-### 5. Configure Stripe Webhook
-
-1. Stripe Dashboard → **Webhooks** → Add endpoint
-2. URL: `https://yourdomain.com/api/webhooks/stripe`
-3. Events:
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `invoice.payment_succeeded`
-   - `invoice.payment_failed`
-
-### 6. Environment Variables
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-
-# Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
-CLERK_SECRET_KEY=...
-CLERK_WEBHOOK_SECRET=...
-
-# Stripe
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-
-# Stripe Price IDs (map to tiers)
-STRIPE_PRICE_STARTER=price_...
-STRIPE_PRICE_PRO=price_...
-STRIPE_PRICE_ELITE=price_...
-STRIPE_PRICE_PLAYER_BOOST=price_...
-```
-
-### 7. Supabase Storage Buckets
-
-Create these buckets in **Supabase Storage**:
-
-```
-player-photos      → Public, 5MB limit, image/* only
-highlight-reels    → Public, 500MB limit, video/* only
-match-clips        → Public, 200MB limit, video/* only
-verification-docs  → Private, 10MB limit, PDF/image
-org-logos          → Public, 2MB limit, image/* only
-```
-
-Set CORS policies to allow your domain.
-
-### 8. Realtime Subscriptions (optional)
-
-Enable Realtime for these tables in Supabase Dashboard:
-
-- `messages` — live chat
-- `notifications` — live notification badge
-- `contacts` — live contact request updates
-
----
-
-## Key Design Decisions
-
-### 1. Clerk User ID as the Bridge
-We store `clerk_user_id` (e.g. `user_2abc...`) in the `users` table and sync via webhooks. The `auth_user_id()` SQL function maps the JWT `sub` claim back to our internal UUID. This keeps auth fully Clerk-managed while giving us relational integrity.
-
-### 2. Private Data Protection
-Sensitive fields (`agent_contact`, `current_weekly_wage_gbp`) live in `player_profiles` but are **only returned** via conditional SQL (`CASE WHEN has_active_subscription() THEN ... ELSE NULL END`). RLS policies and API-layer guards provide double protection.
-
-### 3. Subscription Gating via SQL Functions
-`has_active_subscription()` is a `SECURITY DEFINER` function that checks subscription status. This can be called inside RLS policies or API queries, keeping business logic in one place.
-
-### 4. Profile Views Deduplication
-The `UNIQUE NULLS NOT DISTINCT` constraint on `profile_views` prevents the same user from logging more than one view per player per hour. This keeps analytics meaningful without requiring application-layer dedup.
-
-### 5. Featured Players via Trigger
-When a `player_boost` record is inserted/updated, a trigger automatically syncs `is_featured` and `featured_until` on `player_profiles`. Search queries can simply `ORDER BY is_featured DESC` without joining to boosts.
-
-### 6. Denormalised Counters
-`profile_views_count` on `player_profiles` is maintained by a trigger for O(1) display. Raw events still exist in `profile_views` for analytics. Same pattern used for `video_highlights_count`.
-
-### 7. JSONB for Flexible Data
-`previous_clubs` uses JSONB for flexibility (different data exists for different clubs). Structured career data lives in `player_career_history`. Both are indexed.
-
-### 8. GIN Indexes for Array Search
-`secondary_positions football_position[]` uses a GIN index enabling fast `'ST' = ANY(secondary_positions)` queries without full table scans.
-
----
-
-## Subscription Tier Capabilities
-
-| Feature | Free (Player) | Boosted (Player) | Free (Club) | Starter | Pro | Elite |
-|---------|:---:|:---:|:---:|:---:|:---:|:---:|
-| Create profile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Appear in search | ✅ | ✅ | — | — | — | — |
-| View profile analytics | ❌ | ✅ | — | — | — | — |
-| Featured in search | ❌ | ✅ | — | — | — | — |
-| Search players | — | — | ✅ | ✅ | ✅ | ✅ |
-| Contact players | — | — | ❌ | ✅ | ✅ | ✅ |
-| View agent details | — | — | ❌ | ✅ | ✅ | ✅ |
-| Shortlists | — | — | 1 | 3 | 10 | Unlimited |
-| Messaging | — | — | ❌ | ✅ | ✅ | ✅ |
-
----
-
-## Recommended Supabase Features
-
-1. **Supabase Storage** — Player videos and photos. Use signed URLs for private docs.
-2. **Supabase Realtime** — Live messaging and notification badges via Postgres CDC.
-3. **Supabase Edge Functions** — Run Stripe webhook handler close to the database.
-4. **pg_cron** — Nightly job to expire `player_boosts` and sync `is_featured = FALSE`.
-5. **Supabase Vault** — Store Stripe keys and webhook secrets securely.
-6. **Database Webhooks** — Trigger Resend/Postmark emails on `contacts` status changes.
-7. **Point-in-Time Recovery** — Enable for production; player profiles are critical data.
-8. **Connection Pooling (PgBouncer)** — Enable transaction mode for serverless Next.js.
-
----
-
-## Indexes Reference
-
-### Player Search (most common)
-```sql
--- Primary position search
-idx_players_primary_pos
-
--- Secondary position array search (GIN)
-idx_players_secondary_pos
-
--- Composite search index
-idx_players_search_composite (position, nationality, contract_status, is_searchable, is_featured)
-
--- Age range (DOB)
-idx_players_dob
-
--- Name fuzzy search (trigram)
-idx_players_name_trgm
-```
-
-### Analytics
-```sql
-idx_views_player_date   -- Profile views by player + time
-idx_views_viewed_at     -- Global views timeline
-```
-
-### Messaging
-```sql
-idx_messages_convo_id   -- Messages in a thread
-idx_messages_unread     -- Unread count queries
-idx_convos_last_msg     -- Inbox ordered by last message
-```
-
----
-
-*Schema version: 1.0 | Last updated: 2026-04*
+Requires [Expo CLI](https://docs.expo.dev/get-started/installation/) and [Expo Go](https://expo.dev/go) (or a native build via EAS).
