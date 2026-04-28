@@ -9,7 +9,7 @@ import { useSignUp, useAuth, useUser, useClerk } from '@clerk/clerk-expo'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import MaskedView from '@react-native-masked-view/masked-view'
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Text as SvgText } from 'react-native-svg'
 import { SvgXml } from 'react-native-svg'
 import { supabase } from '@/lib/supabase'
 import { setPendingProfile } from '@/lib/pendingProfile'
@@ -27,16 +27,46 @@ const SVG_AGENT = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" x
 
 type Role = 'player' | 'agent'
 type AgentType = 'independent_agent' | 'club_scout' | 'scouting_network'
+type GenderType = 'male' | 'female'
+type FootType  = 'left' | 'right' | 'both'
 interface WizardData {
   role: Role | null
   agentType: AgentType | null
+  gender: GenderType | null
+  foot: FootType | null
+  positions: string[]
   firstName: string; lastName: string; age: string
   outwardCode: string; postcode: string
   email: string; password: string
   termsAccepted: boolean
 }
-const INIT: WizardData = { role: null, agentType: null, firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false }
+const INIT: WizardData = { role: null, agentType: null, gender: null, foot: null, positions: [], firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false }
 const AGES = Array.from({ length: 60 }, (_, i) => String(i + 16))
+
+// ─── Nationalities ────────────────────────────────────────────────────────────
+const NATIONALITIES = [
+  'Albanian', 'Algerian', 'American', 'Angolan', 'Argentine', 'Armenian',
+  'Australian', 'Austrian', 'Azerbaijani', 'Belarusian', 'Belgian', 'Beninese',
+  'Bolivian', 'Bosnian', 'Brazilian', 'Bulgarian', 'Burundian', 'Cameroonian',
+  'Canadian', 'Chilean', 'Chinese', 'Colombian', 'Congolese', 'Croatian',
+  'Czech', 'Danish', 'Dutch', 'Ecuadorian', 'Egyptian', 'English',
+  'Estonian', 'Ethiopian', 'Finnish', 'French', 'Gambian', 'Georgian',
+  'German', 'Ghanaian', 'Greek', 'Guinean', 'Hungarian', 'Indian',
+  'Irish', 'Ivorian', 'Jamaican', 'Japanese', 'Kenyan', 'Kosovan',
+  'Latvian', 'Liberian', 'Lithuanian', 'Macedonian', 'Malian', 'Mexican',
+  'Moldovan', 'Montenegrin', 'Moroccan', 'Mozambican', 'Nigerian',
+  'Northern Irish', 'Norwegian', 'Paraguayan', 'Peruvian', 'Polish',
+  'Portuguese', 'Romanian', 'Russian', 'Rwandan', 'Scottish', 'Senegalese',
+  'Serbian', 'Sierra Leonean', 'Slovak', 'Slovenian', 'South African',
+  'South Korean', 'Spanish', 'Swedish', 'Swiss', 'Tanzanian', 'Togolese',
+  'Trinidadian', 'Tunisian', 'Turkish', 'Ugandan', 'Ukrainian', 'Uruguayan',
+  'Venezuelan', 'Welsh', 'Zimbabwean',
+].sort()
+
+const GENDERS: { key: GenderType; label: string }[] = [
+  { key: 'male', label: 'Male' },
+  { key: 'female', label: 'Female' },
+]
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function CheckIcon() {
@@ -54,35 +84,40 @@ function ChevronDown() {
   )
 }
 // ─── Step indicator ───────────────────────────────────────────────────────────
-type StepStatus = 'active' | 'complete' | 'inactive'
+type StepStatus = 'active' | 'complete' | 'inactive' | 'disabled'
 function StepCircle({ status }: { status: StepStatus }) {
+  if (Platform.OS === 'web') return null
   return (
     <View style={[
       sc.circle,
-      status === 'active' && sc.circleActive,
+      status === 'active'   && sc.circleActive,
       status === 'complete' && sc.circleDone,
       status === 'inactive' && sc.circleInactive,
+      status === 'disabled' && sc.circleDisabled,
     ]}>
-      {status === 'active' && <View style={sc.dot} />}
+      {status === 'active'   && <View style={sc.dot} />}
       {status === 'complete' && <CheckIcon />}
     </View>
   )
 }
-function StepRow({ step, opacities, translates }: {
+function StepRow({ step, opacities, translates, greyDot }: {
   step: number
   opacities: Animated.Value[]
   translates: Animated.Value[]
+  greyDot?: number
 }) {
   const status = (i: number): StepStatus =>
     i < step ? 'complete' : i === step ? 'active' : 'inactive'
   return (
     <View style={sc.row}>
-      {[0, 1, 2, 3].map((i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i < 3 ? 1 : 0 }}>
-          <Animated.View style={{ opacity: opacities[i], transform: [{ translateY: translates[i] }] }}>
-            <StepCircle status={status(i)} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i < 4 ? 1 : 0 }}>
+          <Animated.View style={[
+            { opacity: opacities[i], transform: [{ translateY: translates[i] }] },
+          ]}>
+            <StepCircle status={i === greyDot ? 'disabled' : status(i)} />
           </Animated.View>
-          {i < 3 && <View style={[sc.connector, i < step - 1 && sc.connectorDone]} />}
+          {i < 4 && <View style={[sc.connector, i < step - 1 && sc.connectorDone]} />}
         </View>
       ))}
     </View>
@@ -97,6 +132,7 @@ const sc = StyleSheet.create({
   circleDone: { backgroundColor: ACCENT, borderWidth: 0 },
   // Inactive: dark solid filled circle, no border
   circleInactive: { backgroundColor: 'rgba(0, 255, 135, 0.06)', borderWidth: 1, borderColor: 'rgba(0,255,135,0.15)' },
+  circleDisabled:  { backgroundColor: '#1f1f1f', borderWidth: 1, borderColor: '#343434' },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ACCENT },
   connector: { flex: 1, height: 3, backgroundColor: 'rgba(217,217,217,0.15)', borderRadius: 100 },
   connectorDone: { backgroundColor: 'rgba(0,255,135,0.35)' },
@@ -162,7 +198,7 @@ const gt = StyleSheet.create({
 // ─── Step 1: Role cards ───────────────────────────────────────────────────────
 const ROLES = [
   { key: 'player' as Role, label: 'Player', svg: SVG_PLAYER },
-  { key: 'agent' as Role,  label: 'Agent / Scout', svg: SVG_AGENT  },
+  { key: 'agent' as Role, label: 'Agent / Scout', svg: SVG_AGENT },
 ]
 function RoleStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
@@ -186,8 +222,8 @@ const rs = StyleSheet.create({
 // ─── Step 2: About you (age picker, agent sub-type, location) ───────────────
 const AGENT_ROLES: { key: AgentType; label: string; sub?: string }[] = [
   { key: 'independent_agent', label: "I'm a FIFA licensed agent" },
-  { key: 'club_scout',        label: "I'm a club registered scout" },
-  { key: 'scouting_network',  label: 'Freelance scout', sub: 'Not currently tied to a club' },
+  { key: 'club_scout', label: "I'm a club registered scout" },
+  { key: 'scouting_network', label: 'Freelance scout', sub: 'Not currently tied to a club' },
 ]
 
 function RadioOption({
@@ -245,9 +281,9 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
     <View style={{ gap: 32 }}>
       {/* Agent sub-type — agents only */}
       {data.role === 'agent' && (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 16 }}>
           <Text style={fs.label}>Which role best describes you?</Text>
-          <View style={{ gap: 16 }}>
+          <View style={{ gap: 10 }}>
             {AGENT_ROLES.map(r => (
               <RadioOption
                 key={r.key}
@@ -263,7 +299,7 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
 
       {/* Age — players only */}
       {data.role === 'player' && (
-        <View style={{ gap: 5 }}>
+        <View style={{ gap: 16 }}>
           <Text style={fs.label}>What's your age?</Text>
           <TouchableOpacity style={fs.select} onPress={() => setShowAge(true)} activeOpacity={0.85}>
             <Text style={data.age ? fs.val : fs.ph}>{data.age || 'Select age'}</Text>
@@ -291,9 +327,29 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
         </Modal>
       )}
 
+      {/* Gender — players only */}
+      {data.role === 'player' && (
+        <View style={{ gap: 16 }}>
+          <View style={{ gap: 2 }}>
+            <Text style={fs.label}>What is your gender?</Text>
+            <Text style={fs.hint}>Needed so we can identify the right group for you.</Text>
+          </View>
+          <View style={{ gap: 10 }}>
+            {GENDERS.map(g => (
+              <RadioOption
+                key={g.key}
+                label={g.label}
+                selected={data.gender === g.key}
+                onPress={() => onChange({ gender: g.key })}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* Location */}
       <View style={{ gap: 16 }}>
-        <View style={{ gap: 5 }}>
+        <View style={{ gap: 16 }}>
           <Text style={fs.label}>Where are you based?</Text>
           <Text style={fs.hint}>{proximityText}</Text>
           <TextInput
@@ -306,7 +362,7 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
           />
         </View>
         {chips.length > 0 && (
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 16 }}>
             <Text style={[fs.label, { textAlign: 'center' }]}>Select your postcode</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {chips.map(c => (
@@ -323,35 +379,153 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
   )
 }
 
+// ─── Shirt rack data ──────────────────────────────────────────────────────────
+const SHIRT_PATH_D = 'M142.503 2.47149L183.608 16.1731C193.413 19.4415 200 28.5807 200 38.9154V72.3484C200 73.6731 199.194 74.8639 197.964 75.3559L196.545 75.9235V89.6251C196.545 90.9498 195.738 92.1406 194.508 92.6326L165.446 104.258V196.743C165.446 198.532 163.995 199.983 162.206 199.983H37.7937C36.0047 199.983 34.5542 198.532 34.5542 196.743V104.258L5.49153 92.6326C4.26183 92.1411 3.45543 90.9498 3.45543 89.6251V75.9235L2.03611 75.3555C0.80641 74.8639 0 73.6727 0 72.348V38.9154C0 28.5807 6.5869 19.4415 16.3917 16.1731L57.4974 2.47149C62.4171 0.831462 67.541 0 72.7268 0H127.273C132.459 0 137.583 0.831894 142.503 2.47149ZM100 6.47849C99.997 6.47849 99.9944 6.47892 99.9914 6.47892H77.1419L90.2436 27.6434H109.739L122.841 6.47892H100.009C100.006 6.47892 100.003 6.47849 100 6.47849ZM9.93435 78.5146V87.4318L34.5542 97.2797V88.3626L9.93435 78.5146ZM165.446 97.2797L190.066 87.4318V78.5146L165.446 88.3626V97.2797ZM61.8325 8.26316C61.5469 8.34171 61.2688 8.41819 61 8.49133L68 20.4913L62.9147 22.0646L22.811 35.4324C21.3092 35.933 20.3006 37.3324 20.3006 38.9154V62.9902C20.3006 64.7793 18.8502 66.2297 17.0612 66.2297C15.2721 66.2297 13.8217 64.7793 13.8217 62.9902V38.9154C13.8217 34.5391 16.6111 30.6695 20.7624 29.2856L59.4104 16.4033L55.4384 9.98747L18.4403 22.3199C11.2859 24.705 6.47892 31.374 6.47892 38.9154V70.1546L34.5542 81.3848V55.0708C34.5542 53.2818 36.0047 51.8314 37.7937 51.8314C39.5828 51.8314 41.0332 53.2818 41.0332 55.0708V193.504H158.967V55.0717C158.967 53.2827 160.417 51.8322 162.206 51.8322C163.995 51.8322 165.446 53.2827 165.446 55.0717V81.3856L193.521 70.1555V38.9159C193.521 31.3744 188.714 24.705 181.56 22.3203L144.548 9.98315L140.576 16.399L179.238 29.286C183.389 30.6695 186.178 34.5396 186.178 38.9154V62.9902C186.178 64.7793 184.728 66.2297 182.939 66.2297C181.15 66.2297 179.699 64.7793 179.699 62.9902V38.9154C179.699 37.3324 178.691 35.933 177.189 35.4324L137.071 22.0599L132 20.4913L139 7.99133C136.444 7.29679 133.026 6.79552 130.387 6.59857L114.299 32.5877C113.708 33.5414 112.666 34.1219 111.544 34.1219H88.4394C87.3177 34.1219 86.2755 33.5414 85.685 32.5877L69.597 6.59986C67.2359 6.77726 64.2627 7.59488 61.8325 8.26316Z'
+const SHIRT_LIST = [
+  { id: 'GK'  }, { id: 'RB'  }, { id: 'CB'  }, { id: 'LB'  },
+  { id: 'RWB' }, { id: 'LWB' }, { id: 'CDM' }, { id: 'CM'  },
+  { id: 'RM'  }, { id: 'LM'  }, { id: 'CAM' }, { id: 'RW'  },
+  { id: 'LW'  }, { id: 'CF'  }, { id: 'ST'  }, { id: 'SS'  },
+]
+const FOOTS: { key: FootType; label: string }[] = [
+  { key: 'left',  label: 'Left foot'  },
+  { key: 'right', label: 'Right foot' },
+  { key: 'both',  label: 'Comfortable playing with both'  },
+]
+
+function ShirtSVG({ selected, label }: { selected: boolean; label: string }) {
+  return (
+    <Svg viewBox="0 0 200 200" width={64} height={64}>
+      <Path
+        fillRule="evenodd" clipRule="evenodd"
+        d={SHIRT_PATH_D}
+        fill={selected ? ACCENT : 'rgba(255,255,255,0.10)'}
+      />
+      <SvgText
+        x="100" y="152" textAnchor="middle"
+        fontFamily="Anton_400Regular" fontSize={58}
+        fill={selected ? '#fff' : 'rgba(255,255,255,0.45)'}
+      >
+        {label}
+      </SvgText>
+    </Svg>
+  )
+}
+
+function ShirtRackSelector({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
+  const toggle = (id: string) => {
+    if (selected.includes(id)) { onChange(selected.filter(s => s !== id)); return }
+    if (selected.length < 3) onChange([...selected, id])
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      {/* Rail — full width, no edge fades */}
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: 'rgba(255,255,255,0.11)', zIndex: 10 }} />
+        <ScrollView
+          horizontal nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 8, gap: 2 }}
+        >
+          {SHIRT_LIST.map(shirt => {
+            const isSel = selected.includes(shirt.id)
+            const isDis = !isSel && selected.length >= 3
+            return (
+              <TouchableOpacity
+                key={shirt.id}
+                onPress={() => toggle(shirt.id)}
+                disabled={isDis}
+                activeOpacity={0.75}
+                style={{ opacity: isDis ? 0.2 : 1, alignItems: 'center', width: 72, paddingBottom: 4 }}
+              >
+                <View style={{ width: 11, height: 6, borderWidth: 1.5, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.18)', borderTopLeftRadius: 7, borderTopRightRadius: 7 }} />
+                <View style={{ width: 1.5, height: 14, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+                <ShirtSVG selected={isSel} label={shirt.id} />
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Selected pills — postcode chip style */}
+      {selected.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: H_PAD }}>
+          {selected.map(id => (
+            <TouchableOpacity key={id} onPress={() => toggle(id)} style={[cs.chip, cs.chipActive]}>
+              <Text style={cs.chipText}>{id} ✕</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {selected.length === 3 && (
+        <Text style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.28)', letterSpacing: 0.3, paddingHorizontal: H_PAD }}>
+          Maximum reached — tap a chip to remove
+        </Text>
+      )}
+    </View>
+  )
+}
+
+// ─── Step 2 "Your Game": shirt rack + preferred foot ─────────────────────────
+function YourGameStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  return (
+    <View style={{ gap: 32 }}>
+      {/* Position shirt rack */}
+      <View style={{ gap: 6, marginHorizontal: -H_PAD }}>
+        <Text style={[fs.label, { paddingHorizontal: H_PAD }]}>Positions played</Text>
+        <Text style={[fs.hint, { paddingHorizontal: H_PAD, marginBottom: 30 }]}>Select up to three – swipe to browse</Text>
+        <ShirtRackSelector
+          selected={data.positions}
+          onChange={ids => onChange({ positions: ids })}
+        />
+      </View>
+
+      {/* Preferred foot */}
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>Preferred foot</Text>
+        <View style={{ gap: 10 }}>
+          {FOOTS.map(f => (
+            <RadioOption
+              key={f.key}
+              label={f.label}
+              selected={data.foot === f.key}
+              onPress={() => onChange({ foot: f.key })}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  )
+}
+const yg = StyleSheet.create({
+  searchWrap:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+  searchInput: { height: 40, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, paddingHorizontal: 12, fontSize: 15, color: '#fff' },
+})
+
 // ─── Step 3: Your details (name) ─────────────────────────────────────────────
 
-/** Returns the registration body wording for the dynamic intro paragraph */
-function registrationBody(data: WizardData): string {
-  if (data.role === 'player') return 'The FA'
+/** Returns the full intro label for the details step, tailored to role and agent type */
+function detailsIntro(data: WizardData): string {
+  if (data.role === 'player') return 'Please enter your first and last name.'
   switch (data.agentType) {
-    case 'independent_agent': return 'The FA'
-    case 'club_scout':        return 'your club'
-    case 'scouting_network':  return 'your network'
-    default:                  return 'The FA'
+    case 'independent_agent': return 'Please enter the first name and last name as registered on the fa.com'
+    case 'club_scout':        return 'Please enter your first name and last name as registered with your current club'
+    case 'scouting_network':  return 'Please enter your first name and last name.'
+    default:                  return 'Please enter your first and last name.'
   }
 }
 
 function DetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
-    <View style={{ gap: 24 }}>
-      {/* Dynamic intro — hidden for freelance scouts (no registration body applies) */}
-      {data.agentType !== 'scouting_network' && (
-        <Text style={fs.intro}>
-          Please enter the name you used when you registered with {registrationBody(data)}.
-        </Text>
-      )}
-
-      <View style={{ gap: 5 }}>
+    <View style={{ gap: 32 }}>
+      <Text style={fs.intro}>{detailsIntro(data)}</Text>
+      <View style={{ gap: 16 }}>
         <Text style={fs.label}>First name</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="John"
           value={data.firstName} onChangeText={v => onChange({ firstName: v })} autoCapitalize="words" />
       </View>
-      <View style={{ gap: 5 }}>
+      <View style={{ gap: 16 }}>
         <Text style={fs.label}>Last name</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Doe"
           value={data.lastName} onChangeText={v => onChange({ lastName: v })} autoCapitalize="words" />
@@ -363,13 +537,13 @@ function DetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
 // ─── Step 4: Account ─────────────────────────────────────────────────────────
 function AccountStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
-    <View style={{ gap: 24 }}>
-      <View style={{ gap: 5 }}>
+    <View style={{ gap: 32 }}>
+      <View style={{ gap: 16 }}>
         <Text style={fs.label}>Email</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="you@example.com"
           value={data.email} onChangeText={v => onChange({ email: v })} keyboardType="email-address" autoCapitalize="none" />
       </View>
-      <View style={{ gap: 5 }}>
+      <View style={{ gap: 16 }}>
         <Text style={fs.label}>Password</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Min. 8 characters"
           value={data.password} onChangeText={v => onChange({ password: v })} secureTextEntry />
@@ -433,7 +607,7 @@ const tc = StyleSheet.create({
 // ─── Shared field styles ──────────────────────────────────────────────────────
 const fs = StyleSheet.create({
   label: { fontSize: 16, color: '#fff', letterSpacing: 0.32 },
-  hint:  { fontSize: 14, color: '#c1c1c1', letterSpacing: 0.28 },
+  hint: { fontSize: 14, color: '#c1c1c1', letterSpacing: 0.28 },
   intro: { fontSize: 16, color: '#fff', letterSpacing: 0.32, lineHeight: 22 },
   input: { height: 59, backgroundColor: 'rgba(0,0,0,0.31)', borderWidth: 1, borderColor: '#4f4f4f', borderRadius: 10, paddingHorizontal: 20, fontSize: 16, color: '#fff' },
   select: { height: 59, backgroundColor: 'rgba(0,0,0,0.31)', borderWidth: 1, borderColor: '#4f4f4f', borderRadius: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -452,7 +626,7 @@ const cs = StyleSheet.create({
 // ─── Step 4 (OAuth variant): account exists, just accept terms ──────────────────
 function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
-    <View style={{ gap: 24 }}>
+    <View style={{ gap: 32 }}>
       <Text style={fs.intro}>
         Your Google account is connected. Accept our policies below to complete your Tranxfer profile.
       </Text>
@@ -467,42 +641,52 @@ function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Pa
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 function validate(step: number, data: WizardData, isOAuth = false): string {
+  const isAgent = data.role === 'agent'
   if (step === 0 && !data.role) return 'Please select your profile type'
   if (step === 1 && data.role === 'player' && !data.age) return 'Please select your age'
   if (step === 1 && data.role === 'agent' && !data.agentType) return 'Please select your role'
   if (step === 1 && !data.postcode) return 'Please select a postcode'
-  if (step === 2 && !data.firstName.trim()) return 'Please enter your first name'
-  if (step === 2 && !data.lastName.trim()) return 'Please enter your last name'
-  if (!isOAuth && step === 3 && !data.email.trim()) return 'Please enter your email'
-  if (!isOAuth && step === 3 && data.password.length < 8) return 'Password must be at least 8 characters'
-  if (step === 3 && !data.termsAccepted) return 'Please accept the terms to continue'
+  if (step === 1 && !data.gender && data.role === 'player') return 'Please select your gender'
+  // Player-only step 2: Your Game
+  if (!isAgent && step === 2 && data.positions.length === 0) return 'Please select at least one position'
+  if (!isAgent && step === 2 && !data.foot) return 'Please select your preferred foot'
+  // Details step: player=3, agent=2
+  const detailsStep = isAgent ? 2 : 3
+  if (step === detailsStep && !data.firstName.trim()) return 'Please enter your first name'
+  if (step === detailsStep && !data.lastName.trim()) return 'Please enter your last name'
+  // Account step: player=4, agent=3
+  const accountStep = isAgent ? 3 : 4
+  if (!isOAuth && step === accountStep && !data.email.trim()) return 'Please enter your email'
+  if (!isOAuth && step === accountStep && data.password.length < 8) return 'Password must be at least 8 characters'
+  if (step === accountStep && !data.termsAccepted) return 'Please accept the terms to continue'
   return ''
 }
 function isStepValid(step: number, data: WizardData, isOAuth = false) { return validate(step, data, isOAuth) === '' }
 
 // ─── Screen titles per step ───────────────────────────────────────────────────
-const TITLES = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_PLAYER = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nGAME', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_AGENT = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function OnboardingScreen() {
-  const router      = useRouter()
-  const navigation  = useNavigation()
-  const insets      = useSafeAreaInsets()
+  const router = useRouter()
+  const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
   const { signUp, setActive, isLoaded } = useSignUp()
-  const { userId: authUserId }          = useAuth()
-  const { user }                        = useUser()
-  const clerk                           = useClerk()
-  const { oauth }                       = useLocalSearchParams<{ oauth?: string }>()
-  const isOAuth                         = oauth === '1'
+  const { userId: authUserId } = useAuth()
+  const { user } = useUser()
+  const clerk = useClerk()
+  const { oauth } = useLocalSearchParams<{ oauth?: string }>()
+  const isOAuth = oauth === '1'
 
-  const [step,        setStep]        = useState(0)
+  const [step, setStep] = useState(0)
   const [displayStep, setDisplayStep] = useState(0)
-  const [data,        setData]        = useState<WizardData>(INIT)
-  const [error,       setError]       = useState('')
-  const [loading,     setLoading]     = useState(false)
+  const [data, setData] = useState<WizardData>(INIT)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [pendingStep, setPendingStep] = useState<number | null>(null)
-  const [inTrans,     setInTrans]     = useState(false)
-  const [showCancel,  setShowCancel]  = useState(false)
+  const [inTrans, setInTrans] = useState(false)
+  const [showCancel, setShowCancel] = useState(false)
 
   // Pre-fill name from Google when arriving via OAuth
   useEffect(() => {
@@ -510,25 +694,25 @@ export default function OnboardingScreen() {
     setData(d => ({
       ...d,
       firstName: d.firstName || user.firstName || '',
-      lastName:  d.lastName  || user.lastName  || '',
+      lastName: d.lastName || user.lastName || '',
     }))
   }, [isOAuth, user])
 
   // Dual-panel parallax
-  const currentX       = useRef(new Animated.Value(0)).current
-  const incomingX      = useRef(new Animated.Value(0)).current
+  const currentX = useRef(new Animated.Value(0)).current
+  const incomingX = useRef(new Animated.Value(0)).current
   const currentOpacity = useRef(new Animated.Value(1)).current
-  // Per-dot opacity — only changing dots fade
-  const dotOpacities   = useRef([0,1,2,3].map(() => new Animated.Value(1))).current
-  const dotTranslates  = useRef([0,1,2,3].map(() => new Animated.Value(0))).current
+  // Per-dot opacity and translate — only changing dots animate
+  const dotOpacities  = useRef([0,1,2,3,4].map(() => new Animated.Value(1))).current
+  const dotTranslates = useRef([0,1,2,3,4].map(() => new Animated.Value(0))).current
 
   const update = (p: Partial<WizardData>) => { setData(d => ({ ...d, ...p })); setError('') }
 
   const animateStep = (dir: 1 | -1, next: number) => {
     if (inTrans) return
     // Panels: no parallax — both travel full width simultaneously
-    const EXIT_TO    = -dir * W
-    const ENTER_FROM =  dir * W
+    const EXIT_TO = -dir * W
+    const ENTER_FROM = dir * W
     const D = 380, ease = Easing.bezier(0.25, 0.46, 0.45, 0.94)
 
     currentX.setValue(0); incomingX.setValue(ENTER_FROM); currentOpacity.setValue(1)
@@ -536,7 +720,7 @@ export default function OnboardingScreen() {
 
     // Dot animation: old active slides down+out, new active slides in from above
     Animated.parallel([
-      Animated.timing(dotOpacities[step],  { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(dotOpacities[step], { toValue: 0, duration: 150, useNativeDriver: true }),
       Animated.timing(dotTranslates[step], { toValue: 8, duration: 150, useNativeDriver: true }),
     ]).start(() => {
       // Snap old dot back (it now renders as done/inactive — invisible reset)
@@ -547,16 +731,16 @@ export default function OnboardingScreen() {
       dotOpacities[next].setValue(0)
       setDisplayStep(next)
       Animated.parallel([
-        Animated.timing(dotOpacities[next],  { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(dotOpacities[next], { toValue: 1, duration: 220, useNativeDriver: true }),
         Animated.timing(dotTranslates[next], { toValue: 0, duration: 220, useNativeDriver: true }),
       ]).start()
     })
 
     // Title + content slide together; outgoing fades out in last 35%
     Animated.parallel([
-      Animated.timing(currentX,       { toValue: EXIT_TO, duration: D,        easing: ease, useNativeDriver: true }),
-      Animated.timing(incomingX,      { toValue: 0,       duration: D,        easing: ease, useNativeDriver: true }),
-      Animated.timing(currentOpacity, { toValue: 0,       duration: D * 0.35, delay: D * 0.65, useNativeDriver: true }),
+      Animated.timing(currentX, { toValue: EXIT_TO, duration: D, easing: ease, useNativeDriver: true }),
+      Animated.timing(incomingX, { toValue: 0, duration: D, easing: ease, useNativeDriver: true }),
+      Animated.timing(currentOpacity, { toValue: 0, duration: D * 0.35, delay: D * 0.65, useNativeDriver: true }),
     ]).start(() => {
       // 1. Update step state — React schedules a re-render of the current panel with new content
       setStep(next)
@@ -575,22 +759,32 @@ export default function OnboardingScreen() {
   const goNext = async () => {
     const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
-    if (step < 3) { animateStep(1, step + 1); return }
+    const isAgent  = data.role === 'agent'
+    const lastStep = isAgent ? 3 : 4
+    // Navigate forward
+    if (step < lastStep) {
+      const next = step + 1
+      animateStep(1, next)
+      return
+    }
 
     // ─ OAuth path: account exists, just save profile ──────────────────────────────
     if (isOAuth) {
       if (!authUserId) { setError('Authentication error. Please try again.'); return }
       setLoading(true)
       try {
-        const table   = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+        const table = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
         const payload: Record<string, unknown> = {
-          user_id:    authUserId,
+          user_id: authUserId,
           first_name: data.firstName,
-          last_name:  data.lastName,
-          postcode:   data.postcode,
+          last_name: data.lastName,
+          postcode: data.postcode,
+          nationality: null,
+          gender:      data.gender || null,
+          foot:        data.foot   || null,
         }
-        if (data.role === 'player') payload.age        = parseInt(data.age)
-        if (data.role === 'agent')  payload.agent_type = data.agentType ?? 'independent_agent'
+        if (data.role === 'player') payload.age = parseInt(data.age)
+        if (data.role === 'agent') payload.agent_type = data.agentType ?? 'independent_agent'
         await supabase.from(table).upsert(payload)
         router.replace('/(tabs)/feed')
       } catch (e: any) {
@@ -605,20 +799,23 @@ export default function OnboardingScreen() {
     try {
       // Build the profile payload before calling signUp.create so we can stash
       // it for verify-email.tsx — createdUserId is null until status === 'complete'
-      const table   = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+      const table = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
       const payload: Record<string, unknown> = {
         first_name: data.firstName,
-        last_name:  data.lastName,
-        postcode:   data.postcode,
+        last_name: data.lastName,
+        postcode: data.postcode,
+        nationality: null,
+        gender:      data.gender || null,
+        foot:        data.foot   || null,
       }
-      if (data.role === 'player') payload.age        = parseInt(data.age)
-      if (data.role === 'agent')  payload.agent_type = data.agentType ?? 'independent_agent'
+      if (data.role === 'player') payload.age = parseInt(data.age)
+      if (data.role === 'agent') payload.agent_type = data.agentType ?? 'independent_agent'
 
       const result = await signUp.create({
         emailAddress: data.email,
-        password:     data.password,
-        firstName:    data.firstName,
-        lastName:     data.lastName,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
       })
 
       if (result.status === 'complete' && setActive) {
@@ -640,14 +837,23 @@ export default function OnboardingScreen() {
   // Cancel: OAuth users are signed out so they don't loop back to onboarding
   const handleCancelConfirm = useCallback(async () => {
     setShowCancel(false)
-    if (isOAuth) { try { await clerk.signOut() } catch {} }
+    if (isOAuth) { try { await clerk.signOut() } catch { } }
     navigation.setOptions({ animation: 'fade' })
     router.replace('/(auth)/welcome')
   }, [isOAuth, clerk, navigation, router])
 
-  const goBack = () => step === 0 ? router.back() : animateStep(-1, step - 1)
-  const valid  = isStepValid(step, data, isOAuth)
-  const CTAS   = ['Next', 'Continue', 'Continue', isOAuth ? 'Continue' : 'Create account']
+  const isAgent = data.role === 'agent'
+  const goBack = () => {
+    if (step === 0) { router.back(); return }
+    const prev = step - 1
+    animateStep(-1, prev)
+  }
+  const valid   = isStepValid(step, data, isOAuth)
+  const getCTA  = (s: number) => s === 0 ? 'Next' : s < (isAgent ? 3 : 4) ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
+  const getTitle = (s: number) => {
+    if (isAgent) return s === 3 && isOAuth ? 'ALMOST\nTHERE' : (TITLES_AGENT[s] ?? '')
+    return s === 4 && isOAuth ? 'ALMOST\nTHERE' : (TITLES_PLAYER[s] ?? '')
+  }
 
   const renderPanel = (s: number, isActive = false) => (
     <ScrollView
@@ -657,17 +863,25 @@ export default function OnboardingScreen() {
     >
       {/* Title */}
       <View style={st.titleBlock}>
-        <GradientTitle text={s === 3 && isOAuth ? 'ALMOST\nTHERE' : TITLES[s]} />
+        <GradientTitle text={getTitle(s)} />
       </View>
 
       {/* Step fields */}
       <View>
-        {s === 0 && <RoleStep    data={data} onChange={update} />}
-        {s === 1 && <AboutStep   data={data} onChange={update} />}
-        {s === 2 && <DetailsStep data={data} onChange={update} />}
-        {s === 3 && (isOAuth
+        {s === 0 && <RoleStep data={data} onChange={update} />}
+        {s === 1 && <AboutStep data={data} onChange={update} />}
+        {/* Step 2: YourGame for players, Details for agents */}
+        {s === 2 && (isAgent
+          ? <DetailsStep data={data} onChange={update} />
+          : <YourGameStep data={data} onChange={update} />)}
+        {/* Step 3: Details for players, Account for agents */}
+        {s === 3 && (isAgent
+          ? (isOAuth ? <OAuthFinalStep data={data} onChange={update} /> : <AccountStep data={data} onChange={update} />)
+          : <DetailsStep data={data} onChange={update} />)}
+        {/* Step 4: Account for players only */}
+        {!isAgent && s === 4 && (isOAuth
           ? <OAuthFinalStep data={data} onChange={update} />
-          : <AccountStep    data={data} onChange={update} />
+          : <AccountStep data={data} onChange={update} />
         )}
       </View>
 
@@ -688,7 +902,7 @@ export default function OnboardingScreen() {
         >
           {loading
             ? <ActivityIndicator color={valid ? '#000' : '#507664'} />
-            : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{CTAS[s]}</Text>
+            : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{getCTA(s)}</Text>
           }
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', justifyContent: s === 0 ? 'center' : 'space-between' }}>
@@ -713,8 +927,13 @@ export default function OnboardingScreen() {
 
         <View style={[st.root, { paddingTop: Math.max(insets.top + 20, 60) }]}>
 
-          {/* Step dots — each circle fades independently */}
-          <StepRow step={displayStep} opacities={dotOpacities} translates={dotTranslates} />
+          {/* Step dots */}
+          <StepRow
+            step={displayStep}
+            opacities={dotOpacities}
+            translates={dotTranslates}
+            greyDot={undefined}
+          />
 
           {/* Slide area — title + form fields move as one unit */}
           <View style={st.slideArea}>
@@ -741,19 +960,19 @@ export default function OnboardingScreen() {
 }
 
 const st = StyleSheet.create({
-  root:            { flex: 1, backgroundColor: 'transparent', paddingHorizontal: H_PAD },
-  slideArea:       { flex: 1, overflow: 'hidden' },
-  panel:           { flex: 1 },
-  panelAbsolute:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  titleBlock:      { marginTop: 32, marginBottom: 32 },
-  panelScroll:     { flexGrow: 1 },
-  errorText:       { color: '#EA4335', fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 8 },
-  ctas:            { gap: 16 },
-  btn:             { height: 57, backgroundColor: ACCENT, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
-  btnDisabled:     { backgroundColor: '#354e42' },
-  btnText:         { fontSize: 14, fontWeight: '700', color: '#000', letterSpacing: 0.28, textTransform: 'uppercase' },
+  root: { flex: 1, backgroundColor: 'transparent', paddingHorizontal: H_PAD },
+  slideArea: { flex: 1, overflow: 'hidden' },
+  panel: { flex: 1 },
+  panelAbsolute: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  titleBlock: { marginTop: 32, marginBottom: 32 },
+  panelScroll: { flexGrow: 1 },
+  errorText: { color: '#EA4335', fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 8 },
+  ctas: { gap: 16 },
+  btn: { height: 57, backgroundColor: ACCENT, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  btnDisabled: { backgroundColor: '#354e42' },
+  btnText: { fontSize: 14, fontWeight: '700', color: '#000', letterSpacing: 0.28, textTransform: 'uppercase' },
   btnTextDisabled: { color: '#507664' },
-  cancel:          { fontSize: 16, color: ACCENT, fontWeight: '700', letterSpacing: 0.32 },
+  cancel: { fontSize: 16, color: ACCENT, fontWeight: '700', letterSpacing: 0.32 },
 })
 
 
