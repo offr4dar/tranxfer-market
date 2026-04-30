@@ -106,7 +106,7 @@ export default function MessagesScreen() {
                   )}
                 </View>
                 <Text style={styles.role}>
-                  {item.other_role === 'agent' ? '🔍 Scout / Agent' : '⚽ Player'}
+                  {item.other_role === 'scout' ? '🔍 Scout' : '⚽ Player'}
                 </Text>
               </View>
             </TouchableOpacity>

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(grep -rn 'agent_profiles\\\\|agent_type\\\\|role === '\\\\''agent'\\\\''\\\\|independent_agent\\\\|scouting_network\\\\|AgentType\\\\|agentType\\\\|isAgent\\\\|AGENT_ROLES\\\\|TITLES_AGENT' /Users/EA/Sites/localhost/tranxfer-mkt/tranxfer-market '--include=*.ts' '--include=*.tsx' '--exclude-path=*/.claude/*' '--exclude-path=*/node_modules/*')",
+      "Bash(psql --version)",
+      "Bash(supabase --version)",
+      "Bash(npx supabase *)",
+      "Read(//Users/EA/.supabase/**)",
+      "Read(//Users/EA/**)",
+      "Bash(cat)",
+      "Bash(node /tmp/check_policies.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(claude mcp *)",
+      "Bash(npx claude *)",
+      "Read(//usr/local/bin/**)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(xargs cat *)",
+      "Bash(pkill -f \"expo\")",
+      "Bash(pkill -f \"metro\")",
+      "Bash(npx expo *)",
+      "Bash(curl -s https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/493b1ac3-8284-4c93-9dfe-22df7bc42d97 -o /Users/EA/Sites/localhost/tranxfer-mkt/tranxfer-market/assets/icons/nav/profile-default.svg)",
+      "Bash(pkill -f \"expo\\\\|metro\")",
+      "Bash(xargs kill *)",
+      "Bash(curl -s -X POST http://localhost:8081/reload)",
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(curl -s \"http://localhost:8081/app/\\(tabs\\)/_layout.tsx\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s \"http://localhost:8081/logs\")"
+    ]
+  }
+}

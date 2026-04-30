@@ -13,6 +13,7 @@ import Svg, { Path, Text as SvgText } from 'react-native-svg'
 import { SvgXml } from 'react-native-svg'
 import { supabase } from '@/lib/supabase'
 import { setPendingProfile } from '@/lib/pendingProfile'
+import { getOutcodeCoords } from '@/lib/uk-outcode-coords'
 import { UK_OUTCODES } from '@/lib/uk-outcodes'
 import ConfirmCancelModal from '@/components/ConfirmCancelModal'
 
@@ -25,13 +26,13 @@ const SVG_PLAYER = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" 
 
 const SVG_AGENT = `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.75 7H14.75C13.0931 7 11.75 8.34315 11.75 10V60C11.75 61.6569 13.0931 63 14.75 63H49.75C51.4069 63 52.75 61.6569 52.75 60V10C52.75 8.34315 51.4069 7 49.75 7Z" fill="#00FF87"/><path d="M32.25 6C33.6307 6 34.75 4.88071 34.75 3.5C34.75 2.11929 33.6307 1 32.25 1C30.8693 1 29.75 2.11929 29.75 3.5C29.75 4.88071 30.8693 6 32.25 6Z" fill="#00FF87"/><path d="M48.75 11H15.75V59H48.75V11Z" fill="#262E24"/><path d="M25.749 4.5H38.751C40.683 4.50019 42.25 6.07117 42.25 8V11.5H22.25V8C22.25 6.06703 23.8165 4.50019 25.749 4.5Z" fill="#287B49" stroke="#00FF87"/><path d="M24.5 52C26.1569 52 27.5 50.6569 27.5 49C27.5 47.3431 26.1569 46 24.5 46C22.8431 46 21.5 47.3431 21.5 49C21.5 50.6569 22.8431 52 24.5 52Z" stroke="#00FF87" stroke-width="2" stroke-linecap="round"/><path d="M26.5 32L32.0445 37.5445M26.5 37.5445L32.0445 32" stroke="#00FF87" stroke-width="2" stroke-linecap="round"/><path d="M38.1643 21.5278C37.9034 21.437 37.6185 21.5749 37.5278 21.8357L36.0494 26.086C35.9587 26.3468 36.0966 26.6318 36.3574 26.7225C36.6182 26.8132 36.9032 26.6753 36.9939 26.4145L38.308 22.6365L42.086 23.9506C42.3468 24.0413 42.6318 23.9034 42.7225 23.6426C42.8132 23.3818 42.6753 23.0968 42.4145 23.0061L38.1643 21.5278ZM30.5 48.5L30.6923 48.9615C31.0112 48.8286 31.3231 48.6928 31.6279 48.554L31.4208 48.099L31.2136 47.6439C30.9189 47.7781 30.6169 47.9096 30.3077 48.0385L30.5 48.5ZM33.2133 47.2034L33.4538 47.6418C34.0716 47.3029 34.6546 46.9491 35.2033 46.5805L34.9244 46.1654L34.6455 45.7504C34.1233 46.1013 33.566 46.4396 32.9729 46.765L33.2133 47.2034ZM36.5242 44.9639L36.8463 45.3464C37.3878 44.8903 37.8852 44.4149 38.3389 43.9204L37.9705 43.5824L37.6021 43.2444C37.1788 43.7058 36.7125 44.1516 36.2021 44.5815L36.5242 44.9639ZM39.2123 42.0158L39.6262 42.2963C40.02 41.7151 40.362 41.1123 40.6532 40.4883L40.2001 40.2769L39.747 40.0654C39.4784 40.6409 39.1627 41.1976 38.7983 41.7354L39.2123 42.0158ZM40.8984 38.4031L41.3792 38.5402C41.567 37.8815 41.7056 37.2039 41.7965 36.5081L41.3007 36.4433L40.8049 36.3785C40.7201 37.0274 40.5912 37.6566 40.4175 38.266L40.8984 38.4031ZM41.4279 34.446L41.9279 34.4464C41.9283 33.777 41.8899 33.093 41.814 32.3948L41.3169 32.4489L40.8199 32.503C40.8921 33.1674 40.9283 33.815 40.9279 34.4457L41.4279 34.446ZM41.008 30.4714L41.4981 30.3727C41.3673 29.723 41.2072 29.0619 41.0186 28.3896L40.5372 28.5246L40.0557 28.6597C40.238 29.3096 40.3922 29.9464 40.5178 30.5701L41.008 30.4714ZM39.9353 26.6155L40.4074 26.4509C40.1904 25.8285 39.9511 25.1971 39.6899 24.5568L39.2269 24.7456L38.764 24.9345C39.019 25.5598 39.2522 26.175 39.4631 26.7801L39.9353 26.6155ZM38.4287 22.9081L38.8829 22.6991C38.7432 22.3954 38.5989 22.0898 38.4501 21.7822L38 22L37.5499 22.2178C37.696 22.5196 37.8375 22.8194 37.9744 23.1171L38.4287 22.9081Z" fill="#00FF87"/></svg>`
 
-type Role = 'player' | 'agent'
-type AgentType = 'independent_agent' | 'club_scout' | 'scouting_network'
+type Role = 'player' | 'scout'
+type ScoutType = 'club_scout' | 'freelance_scout'
 type GenderType = 'male' | 'female'
 type FootType  = 'left' | 'right' | 'both'
 interface WizardData {
   role: Role | null
-  agentType: AgentType | null
+  scoutType: ScoutType | null
   gender: GenderType | null
   foot: FootType | null
   positions: string[]
@@ -39,8 +40,9 @@ interface WizardData {
   outwardCode: string; postcode: string
   email: string; password: string
   termsAccepted: boolean
+  dbsConfirmed: boolean
 }
-const INIT: WizardData = { role: null, agentType: null, gender: null, foot: null, positions: [], firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false }
+const INIT: WizardData = { role: null, scoutType: null, gender: null, foot: null, positions: [], firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false, dbsConfirmed: false }
 const AGES = Array.from({ length: 60 }, (_, i) => String(i + 16))
 
 // ─── Nationalities ────────────────────────────────────────────────────────────
@@ -198,7 +200,7 @@ const gt = StyleSheet.create({
 // ─── Step 1: Role cards ───────────────────────────────────────────────────────
 const ROLES = [
   { key: 'player' as Role, label: 'Player', svg: SVG_PLAYER },
-  { key: 'agent' as Role, label: 'Agent / Scout', svg: SVG_AGENT },
+  { key: 'scout' as Role, label: 'Scout', svg: SVG_AGENT },
 ]
 function RoleStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
@@ -220,10 +222,9 @@ const rs = StyleSheet.create({
 })
 
 // ─── Step 2: About you (age picker, agent sub-type, location) ───────────────
-const AGENT_ROLES: { key: AgentType; label: string; sub?: string }[] = [
-  { key: 'independent_agent', label: "I'm a FIFA licensed agent" },
+const SCOUT_ROLES: { key: ScoutType; label: string; sub?: string }[] = [
   { key: 'club_scout', label: "I'm a club registered scout" },
-  { key: 'scouting_network', label: 'Freelance scout', sub: 'Not currently tied to a club' },
+  { key: 'freelance_scout', label: 'Freelance scout', sub: 'Not currently tied to a club' },
 ]
 
 function RadioOption({
@@ -273,24 +274,24 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
     setChips([...new Set(UK_OUTCODES.filter(c => c.startsWith(q.toUpperCase())))])
   }, [])
 
-  const proximityText = data.role === 'agent'
+  const proximityText = data.role === 'scout'
     ? 'Only the first half is needed. This allows us to determine your proximity to matched players.'
     : 'Only the first half is needed. This allows us to determine your proximity to matched clubs.'
 
   return (
     <View style={{ gap: 32 }}>
       {/* Agent sub-type — agents only */}
-      {data.role === 'agent' && (
+      {data.role === 'scout' && (
         <View style={{ gap: 16 }}>
           <Text style={fs.label}>Which role best describes you?</Text>
           <View style={{ gap: 10 }}>
-            {AGENT_ROLES.map(r => (
+            {SCOUT_ROLES.map(r => (
               <RadioOption
                 key={r.key}
                 label={r.label}
                 sub={r.sub}
-                selected={data.agentType === r.key}
-                onPress={() => onChange({ agentType: r.key })}
+                selected={data.scoutType === r.key}
+                onPress={() => onChange({ scoutType: r.key })}
               />
             ))}
           </View>
@@ -508,11 +509,10 @@ const yg = StyleSheet.create({
 /** Returns the full intro label for the details step, tailored to role and agent type */
 function detailsIntro(data: WizardData): string {
   if (data.role === 'player') return 'Please enter your first and last name.'
-  switch (data.agentType) {
-    case 'independent_agent': return 'Please enter the first name and last name as registered on the fa.com'
-    case 'club_scout':        return 'Please enter your first name and last name as registered with your current club'
-    case 'scouting_network':  return 'Please enter your first name and last name.'
-    default:                  return 'Please enter your first and last name.'
+  switch (data.scoutType) {
+    case 'club_scout':      return 'Please enter your first name and last name as registered with your current club'
+    case 'freelance_scout': return 'Please enter your first name and last name.'
+    default:                return 'Please enter your first and last name.'
   }
 }
 
@@ -618,8 +618,8 @@ const fs = StyleSheet.create({
   pickerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
 })
 const cs = StyleSheet.create({
-  chip: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.11)' },
-  chipActive: { borderWidth: 1, borderColor: '#dedede' },
+  chip: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.11)', borderWidth: 1, borderColor: 'transparent' },
+  chipActive: { borderColor: '#dedede' },
   chipText: { fontSize: 16, color: '#fff', fontWeight: '700', letterSpacing: 0.32 },
 })
 
@@ -639,33 +639,85 @@ function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Pa
   )
 }
 
+// ─── Step 2 (Scout only): DBS / Safeguarding declaration ─────────────────────
+function DBSStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  const [holdsDBS, setHoldsDBS]           = useState(data.dbsConfirmed)
+  const [understandsVerify, setUnderstandsVerify] = useState(data.dbsConfirmed)
+
+  const sync = (h: boolean, u: boolean) => {
+    setHoldsDBS(h); setUnderstandsVerify(u)
+    onChange({ dbsConfirmed: h && u })
+  }
+
+  return (
+    <View style={{ gap: 28 }}>
+      <View style={{ gap: 14 }}>
+        <Text style={fs.intro}>
+          The safety of young people in football is our highest priority. All scouts and agents must hold a valid Enhanced DBS (Disclosure and Barring Service) certificate before accessing Tranxfer Market.
+        </Text>
+        <Text style={fs.intro}>
+          Your account will be restricted until our team has verified your certificate. This typically takes 1–2 working days.
+        </Text>
+      </View>
+
+      <View style={{ gap: 20 }}>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}
+          onPress={() => sync(!holdsDBS, understandsVerify)}
+          activeOpacity={0.8}
+        >
+          <View style={[tc.box, holdsDBS && tc.boxChecked]}>
+            {holdsDBS && <CheckIcon />}
+          </View>
+          <Text style={[fs.label, { flex: 1, lineHeight: 24 }]}>
+            I confirm I hold a current Enhanced DBS certificate
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}
+          onPress={() => sync(holdsDBS, !understandsVerify)}
+          activeOpacity={0.8}
+        >
+          <View style={[tc.box, understandsVerify && tc.boxChecked]}>
+            {understandsVerify && <CheckIcon />}
+          </View>
+          <Text style={[fs.label, { flex: 1, lineHeight: 24 }]}>
+            I understand my account will remain restricted until Tranxfer Market has verified my certificate
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 function validate(step: number, data: WizardData, isOAuth = false): string {
-  const isAgent = data.role === 'agent'
+  const isScout = data.role === 'scout'
   if (step === 0 && !data.role) return 'Please select your profile type'
   if (step === 1 && data.role === 'player' && !data.age) return 'Please select your age'
-  if (step === 1 && data.role === 'agent' && !data.agentType) return 'Please select your role'
+  if (step === 1 && data.role === 'scout' && !data.scoutType) return 'Please select your role'
   if (step === 1 && !data.postcode) return 'Please select a postcode'
   if (step === 1 && !data.gender && data.role === 'player') return 'Please select your gender'
-  // Player-only step 2: Your Game
-  if (!isAgent && step === 2 && data.positions.length === 0) return 'Please select at least one position'
-  if (!isAgent && step === 2 && !data.foot) return 'Please select your preferred foot'
-  // Details step: player=3, agent=2
-  const detailsStep = isAgent ? 2 : 3
-  if (step === detailsStep && !data.firstName.trim()) return 'Please enter your first name'
-  if (step === detailsStep && !data.lastName.trim()) return 'Please enter your last name'
-  // Account step: player=4, agent=3
-  const accountStep = isAgent ? 3 : 4
-  if (!isOAuth && step === accountStep && !data.email.trim()) return 'Please enter your email'
-  if (!isOAuth && step === accountStep && data.password.length < 8) return 'Password must be at least 8 characters'
-  if (step === accountStep && !data.termsAccepted) return 'Please accept the terms to continue'
+  // Scout step 2: Safeguarding declaration
+  if (isScout && step === 2 && !data.dbsConfirmed) return 'Please confirm both declarations to continue'
+  // Player step 2: Your Game
+  if (!isScout && step === 2 && data.positions.length === 0) return 'Please select at least one position'
+  if (!isScout && step === 2 && !data.foot) return 'Please select your preferred foot'
+  // Details: both roles at step 3
+  if (step === 3 && !data.firstName.trim()) return 'Please enter your first name'
+  if (step === 3 && !data.lastName.trim()) return 'Please enter your last name'
+  // Account: both roles at step 4
+  if (!isOAuth && step === 4 && !data.email.trim()) return 'Please enter your email'
+  if (!isOAuth && step === 4 && data.password.length < 8) return 'Password must be at least 8 characters'
+  if (step === 4 && !data.termsAccepted) return 'Please accept the terms to continue'
   return ''
 }
 function isStepValid(step: number, data: WizardData, isOAuth = false) { return validate(step, data, isOAuth) === '' }
 
 // ─── Screen titles per step ───────────────────────────────────────────────────
 const TITLES_PLAYER = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nGAME', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
-const TITLES_AGENT = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_SCOUT  = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'SAFEGUARDING\nDECLARATION', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function OnboardingScreen() {
@@ -759,8 +811,8 @@ export default function OnboardingScreen() {
   const goNext = async () => {
     const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
-    const isAgent  = data.role === 'agent'
-    const lastStep = isAgent ? 3 : 4
+    const isScout  = data.role === 'scout'
+    const lastStep = 4
     // Navigate forward
     if (step < lastStep) {
       const next = step + 1
@@ -773,18 +825,21 @@ export default function OnboardingScreen() {
       if (!authUserId) { setError('Authentication error. Please try again.'); return }
       setLoading(true)
       try {
-        const table = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+        const table = data.role === 'player' ? 'player_profiles' : 'scout_profiles'
+        const coords = getOutcodeCoords(data.postcode)
         const payload: Record<string, unknown> = {
           user_id: authUserId,
           first_name: data.firstName,
           last_name: data.lastName,
           postcode: data.postcode,
+          lat: coords?.[0] ?? null,
+          lng: coords?.[1] ?? null,
           nationality: null,
-          gender:      data.gender || null,
-          foot:        data.foot   || null,
+          gender:         data.gender || null,
+          preferred_foot: data.foot  || null,
         }
         if (data.role === 'player') payload.age = parseInt(data.age)
-        if (data.role === 'agent') payload.agent_type = data.agentType ?? 'independent_agent'
+        if (data.role === 'scout') payload.scout_type = data.scoutType ?? 'club_scout'
         await supabase.from(table).upsert(payload)
         router.replace('/(tabs)/feed')
       } catch (e: any) {
@@ -799,17 +854,20 @@ export default function OnboardingScreen() {
     try {
       // Build the profile payload before calling signUp.create so we can stash
       // it for verify-email.tsx — createdUserId is null until status === 'complete'
-      const table = data.role === 'player' ? 'player_profiles' : 'agent_profiles'
+      const table = data.role === 'player' ? 'player_profiles' : 'scout_profiles'
+      const coords = getOutcodeCoords(data.postcode)
       const payload: Record<string, unknown> = {
         first_name: data.firstName,
         last_name: data.lastName,
         postcode: data.postcode,
+        lat: coords?.[0] ?? null,
+        lng: coords?.[1] ?? null,
         nationality: null,
-        gender:      data.gender || null,
-        foot:        data.foot   || null,
+        gender:         data.gender || null,
+        preferred_foot: data.foot   || null,
       }
       if (data.role === 'player') payload.age = parseInt(data.age)
-      if (data.role === 'agent') payload.agent_type = data.agentType ?? 'independent_agent'
+      if (data.role === 'scout') payload.scout_type = data.scoutType ?? 'club_scout'
 
       const result = await signUp.create({
         emailAddress: data.email,
@@ -842,17 +900,18 @@ export default function OnboardingScreen() {
     router.replace('/(auth)/welcome')
   }, [isOAuth, clerk, navigation, router])
 
-  const isAgent = data.role === 'agent'
+  const isScout = data.role === 'scout'
   const goBack = () => {
     if (step === 0) { router.back(); return }
     const prev = step - 1
     animateStep(-1, prev)
   }
   const valid   = isStepValid(step, data, isOAuth)
-  const getCTA  = (s: number) => s === 0 ? 'Next' : s < (isAgent ? 3 : 4) ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
+  const getCTA  = (s: number) => s === 0 ? 'Next' : s < 4 ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
   const getTitle = (s: number) => {
-    if (isAgent) return s === 3 && isOAuth ? 'ALMOST\nTHERE' : (TITLES_AGENT[s] ?? '')
-    return s === 4 && isOAuth ? 'ALMOST\nTHERE' : (TITLES_PLAYER[s] ?? '')
+    const titles = isScout ? TITLES_SCOUT : TITLES_PLAYER
+    if (s === 4 && isOAuth) return 'ALMOST\nTHERE'
+    return titles[s] ?? ''
   }
 
   const renderPanel = (s: number, isActive = false) => (
@@ -870,19 +929,16 @@ export default function OnboardingScreen() {
       <View>
         {s === 0 && <RoleStep data={data} onChange={update} />}
         {s === 1 && <AboutStep data={data} onChange={update} />}
-        {/* Step 2: YourGame for players, Details for agents */}
-        {s === 2 && (isAgent
-          ? <DetailsStep data={data} onChange={update} />
+        {/* Step 2: DBS declaration for scouts, Your Game for players */}
+        {s === 2 && (isScout
+          ? <DBSStep data={data} onChange={update} />
           : <YourGameStep data={data} onChange={update} />)}
-        {/* Step 3: Details for players, Account for agents */}
-        {s === 3 && (isAgent
-          ? (isOAuth ? <OAuthFinalStep data={data} onChange={update} /> : <AccountStep data={data} onChange={update} />)
-          : <DetailsStep data={data} onChange={update} />)}
-        {/* Step 4: Account for players only */}
-        {!isAgent && s === 4 && (isOAuth
+        {/* Step 3: Details for both roles */}
+        {s === 3 && <DetailsStep data={data} onChange={update} />}
+        {/* Step 4: Account for both roles */}
+        {s === 4 && (isOAuth
           ? <OAuthFinalStep data={data} onChange={update} />
-          : <AccountStep data={data} onChange={update} />
-        )}
+          : <AccountStep data={data} onChange={update} />)}
       </View>
 
       {/* Error — sits directly below the last field */}

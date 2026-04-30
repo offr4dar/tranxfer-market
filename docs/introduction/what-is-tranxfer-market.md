@@ -1,6 +1,6 @@
 # What is Tranxfer Market?
 
-Tranxfer Market is a mobile-first football recruitment platform designed to bridge the gap between grassroots and academy players and the scouts, agents, and clubs looking to discover them.
+Tranxfer Market is a mobile-first football recruitment platform designed to bridge the gap between grassroots and academy players and the scouts looking to discover them.
 
 The platform operates in a space that has historically been fragmented and opaque — grassroots football recruitment happens through informal networks, word of mouth, and physical scouting. Tranxfer Market brings this process into a structured, digital environment without disrupting the cultural norms that define how football recruitment actually works.
 
@@ -14,7 +14,7 @@ At the professional level, player recruitment is well-resourced and data-driven.
 
 ## The Solution
 
-Tranxfer Market gives players a professional-grade digital presence — a profile, a video showcase, and a verifiable set of scouting attributes — and gives scouts and agents the tools to discover, track, and manage players efficiently. The platform does not disrupt the scout-led nature of football recruitment. Instead, it amplifies it.
+Tranxfer Market gives players a professional-grade digital presence — a profile, a video showcase, and a verifiable set of scouting attributes — and gives scouts the tools to discover, track, and manage players efficiently. The platform does not disrupt the scout-led nature of football recruitment. Instead, it amplifies it.
 
 Players do not apply to clubs. They build a profile that makes them discoverable. Scouts find players. That is how football recruitment works, and Tranxfer Market is designed to respect that.
 
@@ -22,10 +22,12 @@ Players do not apply to clubs. They build a profile that makes them discoverable
 
 ## Who It's For
 
-The platform serves two primary user groups at launch:
+The platform serves two user groups:
 
 - **Grassroots and academy players** (typically aged 14–21) seeking visibility and the chance to be discovered by scouts and clubs
-- **Scouts and agents** — both club-hired and freelance — who need better tools to find, track, and present talent
+- **Scouts** — both club-hired and freelance — who need better tools to find, track, and present talent
+
+These are the only two roles on the platform. The core loop is simple: scouts discover players, players get found.
 
 A third user type, **clubs and teams**, is part of the data model but is not a primary focus at launch.
 

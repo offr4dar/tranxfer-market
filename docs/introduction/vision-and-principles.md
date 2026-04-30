@@ -40,3 +40,4 @@ The best growth mechanism on Tranxfer Market is a player or scout experiencing r
 - It is not a job board. Players do not post "available" listings and wait for responses.
 - It is not a stats platform. Without real match data, statistical performance tracking is not viable at this level.
 - It is not trying to replace scouts. It is trying to make them better at their job.
+- It is not a platform for agents. Player representation and contract negotiation happen after discovery — that is a different product problem entirely.

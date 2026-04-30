@@ -8,9 +8,9 @@ CREATE OR REPLACE VIEW public.user_display_names AS
          profile_photo_url AS avatar_url
   FROM public.player_profiles
   UNION ALL
-  SELECT user_id, first_name, last_name, 'agent'::text AS role,
+  SELECT user_id, first_name, last_name, 'scout'::text AS role,
          logo_url AS avatar_url
-  FROM public.agent_profiles;
+  FROM public.scout_profiles;
 
 -- ─── Conversations ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.conversations (

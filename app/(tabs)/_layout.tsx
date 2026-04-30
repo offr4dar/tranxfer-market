@@ -1,38 +1,36 @@
 import { useEffect, useState } from 'react'
-import { View, Text } from 'react-native'
+import { View } from 'react-native'
 import { Tabs } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import {
-  FeedIcon, SearchIcon, ProfileIcon, MessagesIcon, BellIcon,
+  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
+import { DevRoleProvider, useDevRole } from '@/lib/devRole'
+import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 
 // ─── Unread badge overlay ─────────────────────────────────────────────────────
 function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
   return (
-    <View>
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       {icon}
       {count > 0 && (
         <View style={{
-          position: 'absolute', top: -4, right: -6,
-          minWidth: 16, height: 16, borderRadius: 8,
-          backgroundColor: '#000000',
-          alignItems: 'center', justifyContent: 'center',
-          paddingHorizontal: 3,
-        }}>
-          <Text style={{ color: '#00FF87', fontSize: 10, fontWeight: '700' }}>
-            {count > 9 ? '9+' : count}
-          </Text>
-        </View>
+          width: 7, height: 7, borderRadius: 3.5,
+          backgroundColor: '#0F5FFF',
+          marginLeft: 3,
+        }} />
       )}
     </View>
   )
 }
 
-// ─── Tabs layout ──────────────────────────────────────────────────────────────
-export default function TabsLayout() {
+// ─── Inner layout — must live inside DevRoleProvider to call useDevRole ───────
+function TabsContent() {
   const { userId } = useAuth()
+  const { devRole } = useDevRole()
+  const isPlayer = devRole === 'player'
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
 
@@ -69,53 +67,76 @@ export default function TabsLayout() {
         lazy: false,
       }}
     >
+      {/* ── Scout-only tabs ───────────────────────────────────────────────── */}
       <Tabs.Screen
         name="feed"
         options={{
           title: 'Feed',
-          tabBarIcon: ({ color }) => <FeedIcon color={color} />,
+          href: isPlayer ? null : undefined,
+          tabBarIcon: ({ color, size }) => <FeedIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="search"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="shortlist"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color }) => <SearchIcon color={color} />,
+          title: 'Watchlist',
+          href: isPlayer ? null : undefined,
+          tabBarIcon: ({ color, size }) => <WatchlistIcon color={color} size={size} />,
         }}
       />
+
+      {/* ── Player-only tabs ──────────────────────────────────────────────── */}
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <ProfileIcon color={color} />,
+          href: isPlayer ? undefined : null,
+          tabBarIcon: ({ color, size }) => <ProfileIcon color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Messages',
-          tabBarIcon: ({ color }) => (
-            <BadgeIcon
-              icon={<MessagesIcon color={color} />}
-              count={unreadMessages}
-            />
-          ),
-        }}
-      />
+
+      {/* ── Shared tabs ───────────────────────────────────────────────────── */}
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Alerts',
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, size }) => (
             <BadgeIcon
-              icon={<BellIcon color={color} />}
+              icon={<BellIcon color={color} size={size} />}
               count={unreadNotifications}
             />
           ),
         }}
       />
-      {/* Hidden — navigated to programmatically */}
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Inbox',
+          tabBarIcon: ({ color, size }) => (
+            <BadgeIcon
+              icon={<InboxIcon color={color} size={size} />}
+              count={unreadMessages}
+            />
+          ),
+        }}
+      />
+
+      {/* ── Hidden — navigated to programmatically ────────────────────────── */}
       <Tabs.Screen name="conversation/[id]" options={{ href: null }} />
     </Tabs>
+  )
+}
+
+// ─── Root layout ──────────────────────────────────────────────────────────────
+export default function TabsLayout() {
+  return (
+    <DevRoleProvider>
+      <TabsContent />
+      {__DEV__ && <DevRoleSwitcher />}
+    </DevRoleProvider>
   )
 }

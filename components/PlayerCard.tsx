@@ -1,63 +1,59 @@
+import { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
-
-export type ContractStatus =
-  | 'available_now' | 'available_eot' | 'under_contract' | 'trial' | null | undefined
-
-export interface PlayerProfile {
-  id: string
-  user_id: string
-  first_name: string
-  last_name: string
-  primary_position?: string | null
-  secondary_positions?: string[] | null
-  age?: number | null
-  current_club?: string | null
-  contract_status?: ContractStatus
-  nationality?: string | null
-  is_verified?: boolean
-  is_featured?: boolean
-  appearances?: number
-  goals?: number
-  assists?: number
-}
+import { supabase } from '@/lib/supabase'
+import { PlayerProfile, ContractStatus } from '@/types'
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS: Record<string, { label: string; bg: string; text: string; border?: string }> = {
   available_now: {
     label: 'AVAILABLE',
-    bg:    '#00FF87',
-    text:  '#000000',
+    bg: '#00FF87',
+    text: '#000000',
   },
   available_eot: {
     label: 'AVAILABLE EOT',
-    bg:    '#C49B1E',
-    text:  '#000000',
+    bg: '#C49B1E',
+    text: '#000000',
   },
   under_contract: {
-    label:  'UNDER CONTRACT',
-    bg:     'rgba(255,255,255,0.07)',
-    text:   'rgba(255,255,255,0.55)',
+    label: 'UNDER CONTRACT',
+    bg: 'rgba(255,255,255,0.07)',
+    text: 'rgba(255,255,255,0.55)',
     border: 'rgba(255,255,255,0.15)',
   },
   trial: {
     label: 'ON TRIAL',
-    bg:    'rgba(110,140,255,0.15)',
-    text:  '#8AABFF',
-    border:'rgba(110,140,255,0.3)',
+    bg: 'rgba(110,140,255,0.15)',
+    text: '#8AABFF',
+    border: 'rgba(110,140,255,0.3)',
   },
 }
 
 interface Props {
   player: PlayerProfile
   onPress?: () => void
+  scoutId?: string
+  isShortlisted?: boolean
+  isSubscribed?: boolean
 }
 
-export default function PlayerCard({ player, onPress }: Props) {
-  const initials = [player.first_name?.[0], player.last_name?.[0]].filter(Boolean).join('')
-  const status   = player.contract_status ?? 'under_contract'
-  const cfg      = STATUS[status] ?? STATUS.under_contract
+export default function PlayerCard({ player, onPress, scoutId, isShortlisted = false, isSubscribed = true }: Props) {
+  const [shortlisted, setShortlisted] = useState(isShortlisted)
+  const [toggling, setToggling] = useState(false)
 
-  // Meta: "CB · 22YRS · ENGLAND"
+  const isScout = !!scoutId
+
+  // Redact identity for unsubscribed scouts
+  const displayFirstName = isScout && !isSubscribed
+    ? player.first_name?.[0] ?? ''
+    : player.first_name ?? ''
+  const displayLastName = player.last_name ?? ''
+  const displayClub = isScout && !isSubscribed ? null : player.current_club
+
+  const initials = [player.first_name?.[0], player.last_name?.[0]].filter(Boolean).join('')
+  const status = player.contract_status ?? 'under_contract'
+  const cfg = STATUS[status] ?? STATUS.under_contract
+
   const parts = [
     player.primary_position,
     player.age ? `${player.age}YRS` : null,
@@ -65,34 +61,57 @@ export default function PlayerCard({ player, onPress }: Props) {
   ].filter(Boolean)
   const meta = parts.join(' · ')
 
+  const toggleShortlist = async () => {
+    if (!scoutId || toggling) return
+    setToggling(true)
+    if (shortlisted) {
+      await supabase
+        .from('watchlist_items')
+        .delete()
+        .eq('scout_id', scoutId)
+        .eq('player_id', player.id)
+      setShortlisted(false)
+    } else {
+      await supabase
+        .from('watchlist_items')
+        .insert({ scout_id: scoutId, player_id: player.id })
+      setShortlisted(true)
+    }
+    setToggling(false)
+  }
+
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      {/* ── Top: avatar floated right ── */}
-      <View style={styles.topRow}>
-        <View style={styles.spacer} />
-        <View style={styles.avatar}>
+      {/* Avatar — absolutely positioned */}
+      <View style={[styles.avatar, isScout && !isSubscribed && styles.avatarRedacted]}>
+        {isScout && !isSubscribed ? (
+          <Text style={styles.initialsRedacted}>?</Text>
+        ) : (
           <Text style={styles.initials}>{initials}</Text>
-          {player.is_verified && (
-            <View style={styles.verifiedDot}>
-              <Text style={styles.verifiedTick}>✓</Text>
-            </View>
-          )}
-        </View>
+        )}
+        {player.is_verified && isSubscribed && (
+          <View style={styles.verifiedDot}>
+            <Text style={styles.verifiedTick}>✓</Text>
+          </View>
+        )}
       </View>
 
-      {/* ── Bottom: name + info ── */}
+      {/* ── Name + info ── */}
       <View style={styles.bottomBlock}>
-        {/* Player name — two lines, Anton font */}
         <View style={styles.nameBlock}>
           <Text style={styles.firstName} numberOfLines={1}>
-            {player.first_name.toUpperCase()}
+            {isScout && !isSubscribed
+              ? `${displayFirstName.toUpperCase()}.`
+              : displayFirstName.toUpperCase()}
           </Text>
           <Text style={styles.lastName} numberOfLines={1}>
-            {player.last_name.toUpperCase()}
+            {isScout && !isSubscribed
+              ? '*'.repeat(displayLastName.length)
+              : displayLastName.toUpperCase()}
           </Text>
         </View>
 
@@ -107,8 +126,8 @@ export default function PlayerCard({ player, onPress }: Props) {
               {cfg.label}
             </Text>
           </View>
-          {player.current_club ? (
-            <Text style={styles.club} numberOfLines={1}>{player.current_club.toUpperCase()}</Text>
+          {displayClub ? (
+            <Text style={styles.club} numberOfLines={1}>{displayClub.toUpperCase()}</Text>
           ) : null}
         </View>
 
@@ -116,9 +135,18 @@ export default function PlayerCard({ player, onPress }: Props) {
         {meta ? (
           <View style={styles.metaRow}>
             <Text style={styles.meta}>{meta}</Text>
-            <TouchableOpacity activeOpacity={0.65}>
-              <Text style={styles.shortlist}>SHORTLIST</Text>
-            </TouchableOpacity>
+            {isScout && (
+              <TouchableOpacity
+                onPress={toggleShortlist}
+                disabled={toggling}
+                activeOpacity={0.65}
+                style={[styles.shortlistBtn, shortlisted && styles.shortlistBtnActive]}
+              >
+                <Text style={[styles.shortlist, shortlisted && styles.shortlistActive]}>
+                  {shortlisted ? '✓ SHORTLISTED' : 'SHORTLIST'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : null}
       </View>
@@ -127,7 +155,7 @@ export default function PlayerCard({ player, onPress }: Props) {
 }
 
 const CARD_BG = '#111810'
-const BRAND   = '#00FF87'
+const BRAND = '#00FF87'
 
 const styles = StyleSheet.create({
   card: {
@@ -137,19 +165,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
-    marginBottom: 16,
-    justifyContent: 'space-between',
+    marginBottom: 8,
   },
 
-  // Top row — avatar on right, space on left
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  spacer: { flex: 1 },
   avatar: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
     width: 84,
     height: 84,
     borderRadius: 42,
@@ -159,10 +181,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarRedacted: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
   initials: {
     fontFamily: 'Anton_400Regular',
     fontSize: 28,
     color: BRAND,
+    letterSpacing: 1,
+  },
+  initialsRedacted: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 28,
+    color: 'rgba(255,255,255,0.2)',
     letterSpacing: 1,
   },
   verifiedDot: {
@@ -178,9 +210,8 @@ const styles = StyleSheet.create({
   },
   verifiedTick: { fontSize: 10, fontWeight: '800', color: '#000' },
 
-  // Name block
   bottomBlock: { gap: 8 },
-  nameBlock:   { gap: -4 },
+  nameBlock: { gap: -4 },
   firstName: {
     fontFamily: 'Anton_400Regular',
     fontSize: 24,
@@ -195,7 +226,6 @@ const styles = StyleSheet.create({
     lineHeight: 52,
   },
 
-  // Status + club row
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,7 +251,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // Meta + shortlist
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -232,10 +261,24 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     letterSpacing: 0.3,
   },
+  shortlistBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  shortlistBtnActive: {
+    borderColor: BRAND,
+    backgroundColor: 'rgba(0,255,135,0.1)',
+  },
   shortlist: {
     fontSize: 11,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.4)',
     letterSpacing: 0.5,
+  },
+  shortlistActive: {
+    color: BRAND,
   },
 })

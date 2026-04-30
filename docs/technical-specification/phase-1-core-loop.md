@@ -9,8 +9,8 @@
 The feed screen (`app/(tabs)/feed.tsx`) renders stub data. It must connect to live Supabase data.
 
 ### Requirements
-- Query `profiles` joined with `player_profiles`, `agent_profiles`, or `club_profiles` based on the active filter
-- Apply role filter from `FilterToggle` — values: `'player' | 'agent' | 'club'`
+- Query `profiles` joined with `player_profiles` or `club_profiles` based on the active filter
+- Apply role filter from `FilterToggle` — values: `'player' | 'club'`
 - Cursor-based pagination: 20 records per page, load more on scroll to bottom
 - Each `PlayerCard` must display: name, role, position (if player), nationality, postcode district, `profile_picture_url`
 - Loading skeleton while fetching
@@ -34,7 +34,7 @@ LIMIT 20 OFFSET :cursor
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
-  filter: 'player' | 'agent' | 'club';
+  filter: 'player' | 'club';
   cursor: number;
 }
 ```
@@ -55,7 +55,7 @@ LIMIT 20 OFFSET :cursor
 ### Role-Specific Fields
 **Player:** full name, age, position, secondary position, nationality, postcode, preferred foot, height
 
-**Agent/Scout:** full name, agency name, licence number (if applicable), regions covered, years experience
+**Scout:** full name, scout type (club-hired or freelance), club or agency affiliation (if applicable), licence number (if applicable), regions covered, years experience
 
 ---
 

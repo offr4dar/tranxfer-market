@@ -18,15 +18,16 @@
 ### Onboarding Wizard — Detail
 A 4-step animated flow with parallax slide transitions and per-dot step indicator animations.
 
-- **Step 1 — Role selection:** Player or Agent/Scout with custom SVG icons
-- **Step 2 — About you:** Age picker (players only), agent sub-type radio (Independent/Club Scout/Freelance), UK postcode autocomplete using `lib/uk-outcodes.ts` with chip selection
-- **Step 3 — Name:** First and last name, with dynamic intro text based on role/agent type
+- **Step 1 — Role selection:** Player or Scout with custom SVG icons
+- **Step 2 — About you:** Age picker (players only), scout sub-type radio (Club Scout / Freelance Scout), UK postcode autocomplete using `lib/uk-outcodes.ts` with chip selection
+- **Step 3 — Name:** First and last name, with dynamic intro text based on role/scout type
 - **Step 4 — Account:** Email + password, or OAuth final step (terms acceptance only)
 
-The agent sub-type distinguishes between three types stored in `agent_profiles.agent_type`:
-- `independent_agent` — FIFA licensed agent
-- `club_scout` — club registered scout
-- `scouting_network` — freelance scout (not tied to a club)
+The scout sub-type distinguishes between two types stored in `scout_profiles.scout_type`:
+- `club_scout` — employed by a club, scouting on behalf of their organisation
+- `freelance_scout` — independent scout, building their own watchlists and portfolio
+
+> **Note:** The existing codebase uses `agent_profiles` and `agent_type` in the database schema and references `independent_agent` and `scouting_network` as sub-types. These must be migrated to `scout_profiles` and `scout_type` with values `club_scout` and `freelance_scout`. The `independent_agent` sub-type (FIFA licensed agent) is removed — agents are out of scope for this product.
 
 OAuth (Google) is supported via `oauth=1` URL param — skips the account step and pre-fills name from the Google account. Token cache uses `expo-secure-store`. Fonts load before the native splash is dismissed.
 
@@ -51,7 +52,7 @@ OAuth (Google) is supported via `oauth=1` URL param — skips the account step a
 - `SHORTLIST` button on each card: renders but has **no `onPress` handler**
 
 ### Profile — Detail
-- Fetches player or agent profile by Clerk `userId` via `maybeSingle()`
+- Fetches player or scout profile by Clerk `userId` via `maybeSingle()`
 - Profile completion bar: live — reads `profile_completion_score` from DB
 - Player stats: Apps, Goals, Assists, Clean Sheets from DB
 - Completion hint: shows up to 2 missing field names
@@ -106,6 +107,8 @@ Contract status badge colours:
 | 007 | `select_policies.sql` | ✅ | Public SELECT policies |
 | 008 | `mobile_rls_policies.sql` | ⚠️ | All policies use `USING (true)` — must tighten before production |
 
+> **Schema migration required:** Migrations 001–004 reference `agent_profiles` and `agent_type`. A new migration (`009_rename_agent_to_scout.sql`) must rename `agent_profiles` → `scout_profiles`, update `agent_type` → `scout_type`, remove the `independent_agent` value, and ensure `user_display_names` view references the renamed table. All application code referencing `agent_profiles` must be updated to `scout_profiles`.
+
 ### Critical Schema Notes
 - `user_id` fields everywhere are `TEXT` (Clerk IDs) — **not UUID**
 - `conversations.participant_ids` is `TEXT[]` storing Clerk IDs
@@ -122,6 +125,7 @@ Contract status badge colours:
 | SHORTLIST button has no `onPress` | 🔴 High |
 | `PlayerProfile` type mismatch between `PlayerCard` and `types/index.ts` | 🔴 High |
 | RLS policies wide open (`USING (true)` everywhere) | 🔴 High |
+| `agent_profiles` must be migrated to `scout_profiles` | 🔴 High |
 | Feed has no pagination | 🟡 Medium |
 | Feed filter is contract status, not user role | 🟡 Medium |
 | Search screen empty | 🟡 Medium |

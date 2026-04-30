@@ -23,7 +23,7 @@ CREATE TABLE watchlist_items (
 ```
 
 ### UI Requirements
-- Bookmark icon on `PlayerCard` — visible only to users with `role = 'agent'`
+- Bookmark icon on `PlayerCard` — visible only to users with `role = 'scout'`
 - Tapping bookmark opens a bottom sheet: choose existing list or create a new named list
 - New profile sub-section: **My Shortlists** — grouped by `list_name`
 - Each watchlist item shows player card with scout's private notes
@@ -79,7 +79,7 @@ CREATE TABLE placements (
 ```
 
 ### UI Requirements
-- Placements section on agent/scout profile screen
+- Placements section on scout profile screen — visible only to freelance scouts
 - Scouts add placements manually — free text, not linked to profiles
 - Displayed as a timeline on their public profile, visible to all authenticated users
 - `verified = false` by default — shown with `Self-reported` label

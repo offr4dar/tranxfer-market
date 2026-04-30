@@ -2,25 +2,36 @@ import { View, TouchableOpacity, Text, StyleSheet } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useDevRole } from '@/lib/devRole'
 
 /**
  * FloatingTabBar
  *
  * Structure:
  *   ┌─── outerWrapper (position absolute, bottom 30, left/right 16) ───┐
- *   │  ┌─── pill (borderRadius 10, overflow hidden, 100% of wrapper) ──┐│
- *   │  │  BlurView + green overlay (background)                        ││
+ *   │  ┌─── pill (borderRadius 10, overflow hidden) ───────────────────┐│
+ *   │  │  BlurView + green overlay (rgba(0,255,135,0.8))               ││
  *   │  │  tab buttons row                                               ││
+ *   │  │    Feed tab: black pill when selected                          ││
  *   │  └────────────────────────────────────────────────────────────────┘│
  *   └──────────────────────────────────────────────────────────────────────┘
+ *
+ * Colors (from Figma):
+ *   selected feed   → white icon/label, black pill bg
+ *   selected other  → black icon/label
+ *   unselected      → #008A49 icon/label
  */
+const ALWAYS_HIDDEN = new Set(['search'])
+const SCOUT_ONLY = new Set(['feed', 'shortlist'])
+const PLAYER_ONLY = new Set(['profile'])
+
 export default function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
+  const { devRole } = useDevRole()
+  const isPlayer = devRole === 'player'
 
   return (
-    // Outer wrapper — fixed position, 16px padding each side, 30px from bottom
     <View style={[styles.outerWrapper, { bottom: 30 + insets.bottom }]}>
-      {/* Pill — fills 100% of wrapper, rounded, clipped */}
       <View style={styles.pill}>
 
         {/* Blur + green tint background */}
@@ -32,17 +43,18 @@ export default function FloatingTabBar({ state, descriptors, navigation }: Botto
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key]
 
-          // Skip hidden screens — check href:null (Expo Router) and route name
-          const expoOpts = options as any
-          if (expoOpts.href === null || expoOpts.href === false) return null
           if (route.name.includes('conversation')) return null
+          if (ALWAYS_HIDDEN.has(route.name)) return null
+          if (isPlayer && SCOUT_ONLY.has(route.name)) return null
+          if (!isPlayer && PLAYER_ONLY.has(route.name)) return null
 
           const label = options.title ?? route.name
           const isFocused = state.index === index
+          const isFeed = route.name === 'feed'
 
-          const tintColor = isFocused
-            ? (options.tabBarActiveTintColor ?? '#002513')
-            : (options.tabBarInactiveTintColor ?? '#008a49')
+          const iconColor = isFeed
+            ? (isFocused ? '#FFFFFF' : '#0EDA7A')
+            : (isFocused ? '#000000' : '#008A49')
 
           const onPress = () => {
             const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
@@ -59,11 +71,13 @@ export default function FloatingTabBar({ state, descriptors, navigation }: Botto
               accessibilityLabel={options.tabBarAccessibilityLabel}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={styles.tabItem}
+              style={[styles.tabItem, isFeed && (isFocused ? styles.feedPillSelected : styles.feedPillDefault)]}
               activeOpacity={0.7}
             >
-              {options.tabBarIcon?.({ focused: isFocused, color: tintColor, size: 24 })}
-              <Text style={[styles.label, { color: tintColor }]}>
+              <View style={styles.iconSlot}>
+                {options.tabBarIcon?.({ focused: isFocused, color: iconColor, size: 30 })}
+              </View>
+              <Text style={[styles.label, { color: iconColor }]}>
                 {label.toUpperCase()}
               </Text>
             </TouchableOpacity>
@@ -75,48 +89,59 @@ export default function FloatingTabBar({ state, descriptors, navigation }: Botto
 }
 
 const styles = StyleSheet.create({
-  // Fixed wrapper — stays put regardless of scroll
   outerWrapper: {
     position: 'absolute',
     left: 16,
     right: 16,
-    // iOS shadow
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.7,
-    shadowRadius: 35,
-    // Android shadow
-    elevation: 12,
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 24,
   },
 
-  // Pill — 100% of wrapper width, rounded corners, clips the blur
   pill: {
-    height: 70,
-    borderRadius: 10,
+    height: 71,
+    borderRadius: 15,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 5,
   },
 
-  // Green tint layer over the blur
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 255, 135, 0.8)',
   },
 
-  // Each tab button
   tabItem: {
     flex: 1,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingTop: 7,
+    gap: 5,
+  },
+
+  feedPillSelected: {
+    backgroundColor: '#000000',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+
+  feedPillDefault: {
+    backgroundColor: '#08703F',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+
+  iconSlot: {
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   label: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0,
   },
 })

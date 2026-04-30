@@ -4,7 +4,7 @@
  * consumed and cleared in verify-email.tsx after the Clerk session is active.
  */
 export type PendingProfile = {
-  table:   'player_profiles' | 'agent_profiles'
+  table:   'player_profiles' | 'scout_profiles'
   payload: Record<string, unknown>   // user_id filled in after verification
 }
 

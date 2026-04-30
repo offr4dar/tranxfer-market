@@ -10,7 +10,7 @@ import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing, Radius } from '@/constants/theme'
 
-type Role = 'player' | 'agent' | null
+type Role = 'player' | 'scout' | null
 
 interface PlayerData {
   first_name: string; last_name: string; primary_position?: string
@@ -20,9 +20,9 @@ interface PlayerData {
   bio?: string; is_verified?: boolean; league_level?: string
 }
 
-interface AgentData {
+interface ScoutData {
   first_name: string; last_name: string; organisation_name?: string
-  agent_type?: string; positions_seeking?: string[]; regions_covered?: string[]
+  scout_type?: string; positions_seeking?: string[]; regions_covered?: string[]
   league_level?: string; bio?: string; is_verified?: boolean
   years_experience?: number; subscription_tier?: string
 }
@@ -35,9 +35,8 @@ const PLAYER_MENU = [
   { icon: '💳', label: 'Boost my profile', badge: 'Paid' },
 ]
 
-const AGENT_MENU = [
+const SCOUT_MENU = [
   { icon: '✏️', label: 'Edit profile' },
-  { icon: '⭐', label: 'My shortlist' },
   { icon: '📊', label: 'Scout reports', badge: 'Pro' },
   { icon: '🔔', label: 'Notification settings' },
 ]
@@ -46,7 +45,7 @@ export default function ProfileScreen() {
   const { userId, signOut } = useAuth()
   const router = useRouter()
   const [role, setRole]   = useState<Role>(null)
-  const [data, setData]   = useState<PlayerData | AgentData | null>(null)
+  const [data, setData]   = useState<PlayerData | ScoutData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -58,9 +57,9 @@ export default function ProfileScreen() {
       if (p) { setRole('player'); setData(p); setLoading(false); return }
 
       const { data: a } = await supabase
-        .from('agent_profiles')
+        .from('scout_profiles')
         .select('*').eq('user_id', userId).maybeSingle()
-      if (a) { setRole('agent'); setData(a) }
+      if (a) { setRole('scout'); setData(a) }
       setLoading(false)
     })()
   }, [userId])
@@ -88,8 +87,8 @@ export default function ProfileScreen() {
 
   const initials = [data.first_name?.[0], data.last_name?.[0]].filter(Boolean).join('')
   const player   = role === 'player' ? (data as PlayerData) : null
-  const agent    = role === 'agent'  ? (data as AgentData)  : null
-  const menu     = role === 'player' ? PLAYER_MENU : AGENT_MENU
+  const scout    = role === 'scout'  ? (data as ScoutData)  : null
+  const menu     = role === 'player' ? PLAYER_MENU : SCOUT_MENU
   const score    = player?.profile_completion_score ?? 0
 
   return (
@@ -110,15 +109,15 @@ export default function ProfileScreen() {
               .filter(Boolean).join(' · ')}
           </Text>
         )}
-        {agent && (
+        {scout && (
           <Text style={styles.heroSub}>
-            {agent.organisation_name || (agent.agent_type ?? 'Agent').replace(/_/g, ' ')}
+            {scout.organisation_name || (scout.scout_type ?? 'Scout').replace(/_/g, ' ')}
           </Text>
         )}
 
         <View style={styles.rolePill}>
           <Text style={styles.rolePillText}>
-            {role === 'player' ? '⚽ Player' : '🔍 Scout / Agent'}
+            {role === 'player' ? '⚽ Player' : '🔍 Scout'}
           </Text>
         </View>
       </View>
@@ -162,12 +161,12 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* ── Agent info ── */}
-      {agent && agent.positions_seeking && agent.positions_seeking.length > 0 && (
+      {/* ── Scout info ── */}
+      {scout && scout.positions_seeking && scout.positions_seeking.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Positions Seeking</Text>
           <View style={styles.tagRow}>
-            {agent.positions_seeking.map(p => (
+            {scout.positions_seeking.map(p => (
               <View key={p} style={styles.tag}><Text style={styles.tagText}>{p}</Text></View>
             ))}
           </View>

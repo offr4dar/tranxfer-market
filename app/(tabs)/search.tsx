@@ -1,29 +1,71 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, TextInput, FlatList,
-  TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, FlatList,
+  TouchableOpacity, ActivityIndicator,
 } from 'react-native'
+import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
-import PlayerCard, { PlayerProfile } from '@/components/PlayerCard'
-import FilterToggle, { FilterToggleOption } from '@/components/FilterToggle'
+import PlayerCard from '@/components/PlayerCard'
+import { PlayerProfile } from '@/types'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing, Radius } from '@/constants/theme'
-
-const POSITIONS = ['All','GK','CB','LB','RB','CDM','CM','CAM','LW','RW','ST']
+import { useDevRole } from '@/lib/devRole'
+import { FilterIcon, SearchIcon } from '@/components/icons/TabIcons'
+import Input from '@/components/Input'
+import CloseButton from '@/components/CloseButton'
+import FilterPanel, {
+  PlayerFilters, DEFAULT_FILTERS, isFiltered, ageBracketRange,
+} from '@/components/FilterPanel'
 
 export default function SearchScreen() {
-  const [query, setQuery]           = useState('')
-  const [position, setPosition]     = useState('All')
-  const [availability, setAvailability] = useState<FilterToggleOption>('all')
-  const [results, setResults]       = useState<PlayerProfile[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [searched, setSearched]     = useState(false)
+  const { userId } = useAuth()
+  const { devRole } = useDevRole()
+  const [query, setQuery]       = useState('')
+  const [results, setResults]   = useState<PlayerProfile[]>([])
+  const [loading, setLoading]   = useState(false)
+  const [searched, setSearched] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filters, setFilters]   = useState<PlayerFilters>(DEFAULT_FILTERS)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const search = useCallback(async (
-    q: string, pos: string, avail: FilterToggleOption
-  ) => {
+  // Scout-specific state (real data)
+  const [isScout, setIsScout] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [shortlistedIds, setShortlistedIds] = useState<Set<string>>(new Set())
+
+  // Dev override
+  const resolvedIsScout      = __DEV__ ? devRole !== 'player'           : isScout
+  const resolvedIsSubscribed = __DEV__ ? devRole === 'scout_subscribed' : isSubscribed
+  const resolvedScoutId      = resolvedIsScout ? (userId ?? undefined) : undefined
+
+  useEffect(() => {
+    if (!userId) return
+    const loadScoutContext = async () => {
+      const { data } = await supabase
+        .from('scout_profiles')
+        .select('id, subscription_tier')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (!data) return
+
+      setIsScout(true)
+      setIsSubscribed(data.subscription_tier !== 'free' && data.subscription_tier != null)
+
+      const { data: watchlist } = await supabase
+        .from('watchlist_items')
+        .select('player_id')
+        .eq('scout_id', userId)
+
+      if (watchlist) {
+        setShortlistedIds(new Set(watchlist.map(w => w.player_id)))
+      }
+    }
+    loadScoutContext()
+  }, [userId])
+
+  const search = useCallback(async (q: string, f: PlayerFilters) => {
     setLoading(true)
     setSearched(true)
 
@@ -37,9 +79,16 @@ export default function SearchScreen() {
         `first_name.ilike.%${q}%,last_name.ilike.%${q}%,current_club.ilike.%${q}%`
       )
     }
-    if (pos !== 'All') qb = qb.eq('primary_position', pos)
-    if (avail === 'available') {
-      qb = qb.in('contract_status', ['available_now', 'available_eot'])
+
+    if (f.gender)               qb = qb.eq('gender', f.gender)
+    if (f.foot)                 qb = qb.eq('preferred_foot', f.foot)
+    if (f.availability.length)  qb = qb.in('contract_status', f.availability)
+    if (f.positions.length)     qb = qb.in('primary_position', f.positions)
+    if (f.leagueLevel.length)   qb = qb.in('league_level', f.leagueLevel)
+    if (f.ageBracket) {
+      const [min, max] = ageBracketRange(f.ageBracket)
+      if (min !== null) qb = qb.gte('age', min)
+      if (max !== null) qb = qb.lte('age', max)
     }
 
     const { data } = await qb.limit(50)
@@ -50,65 +99,47 @@ export default function SearchScreen() {
   const onChangeText = (text: string) => {
     setQuery(text)
     if (debounce.current) clearTimeout(debounce.current)
-    debounce.current = setTimeout(() => search(text, position, availability), 300)
+    debounce.current = setTimeout(() => search(text, filters), 300)
   }
 
-  const onPositionPress = (pos: string) => {
-    setPosition(pos)
-    search(query, pos, availability)
+  const handleApply = (newFilters: PlayerFilters) => {
+    setFilters(newFilters)
+    setFilterOpen(false)
+    search(query, newFilters)
   }
 
-  const onAvailabilityChange = (avail: FilterToggleOption) => {
-    setAvailability(avail)
-    search(query, position, avail)
-  }
+  const active = isFiltered(filters)
 
   return (
     <ScreenBackground>
-      <ScreenHeader />
+      <ScreenHeader
+        right={
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={() => setFilterOpen(true)}
+            activeOpacity={0.7}
+          >
+            <FilterIcon color={Colors.brand} size={30} />
+            {active && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+        }
+      />
 
       {/* Search input */}
       <View style={styles.inputSection}>
-        <View style={styles.inputWrap}>
-          <Text style={styles.inputIcon}>🔍</Text>
-          <TextInput
-            style={styles.input}
-            value={query}
-            onChangeText={onChangeText}
-            placeholder="Name, club, nationality…"
-            placeholderTextColor={Colors.textMuted}
-            returnKeyType="search"
-            onSubmitEditing={() => search(query, position, availability)}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => { setQuery(''); setResults([]); setSearched(false) }}>
-              <Text style={styles.clearBtn}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Position chips */}
-      <ScrollView
-        horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
-        {POSITIONS.map(pos => (
-          <TouchableOpacity
-            key={pos}
-            style={[styles.chip, position === pos && styles.chipActive]}
-            onPress={() => onPositionPress(pos)}
-          >
-            <Text style={[styles.chipText, position === pos && styles.chipTextActive]}>
-              {pos}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Availability toggle */}
-      <View style={styles.toggleRow}>
-        <FilterToggle value={availability} onChange={onAvailabilityChange} />
+        <Input
+          value={query}
+          onChangeText={onChangeText}
+          placeholder="Name, club, nationality…"
+          returnKeyType="search"
+          onSubmitEditing={() => search(query, filters)}
+          leftIcon={<SearchIcon color="#909090" size={20} />}
+          rightElement={
+            query.length > 0
+              ? <CloseButton onPress={() => { setQuery(''); setResults([]); setSearched(false) }} size={16} />
+              : undefined
+          }
+        />
       </View>
 
       {/* Results */}
@@ -130,49 +161,43 @@ export default function SearchScreen() {
               <Text style={styles.emptySub}>
                 {searched
                   ? 'Try adjusting your search or filters.'
-                  : 'Search by name, club, position or availability.'}
+                  : 'Search by name, club, or use filters to narrow results.'}
               </Text>
             </View>
           }
-          renderItem={({ item }) => <PlayerCard player={item} />}
+          renderItem={({ item }) => (
+            <PlayerCard
+              player={item}
+              scoutId={resolvedScoutId}
+              isShortlisted={shortlistedIds.has(item.id)}
+              isSubscribed={resolvedIsSubscribed}
+            />
+          )}
         />
       )}
+
+      <FilterPanel
+        visible={filterOpen}
+        initialFilters={filters}
+        onClose={() => setFilterOpen(false)}
+        onApply={handleApply}
+      />
     </ScreenBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  filterBtn: { padding: 4 },
+  filterDot: {
+    position: 'absolute', top: 2, right: 2,
+    width: 7, height: 7, borderRadius: 3.5,
+    backgroundColor: '#e51a76',
+  },
   inputSection: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, paddingHorizontal: Spacing.md, height: 48,
-    gap: Spacing.sm,
-  },
-  inputIcon: { fontSize: 15 },
-  input: { flex: 1, color: Colors.text, fontSize: 15 },
-  clearBtn: { color: Colors.textMuted, fontSize: 16 },
-  chips: {
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.sm,
-  },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: Radius.full, borderWidth: 1,
-    borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.03)',
-  },
-  chipActive: { backgroundColor: Colors.brand, borderColor: Colors.brand },
-  chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '500' },
-  chipTextActive: { color: Colors.background, fontWeight: '700' },
-  toggleRow: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
   },
   list: { padding: Spacing.lg, paddingBottom: 200 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

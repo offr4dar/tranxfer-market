@@ -100,7 +100,7 @@ Expo Router ~6, TypeScript, Clerk for auth (@clerk/clerk-expo ^2), and Supabase
 for database/storage (@supabase/supabase-js ^2).
 
 The app is a football recruitment platform with two active user roles: player and 
-agent (which covers both club-hired and freelance scouts). The lib/supabase.ts 
+scout (with sub-types: club_scout and freelance_scout). The lib/supabase.ts 
 file exports a singleton Supabase client. Design tokens are in constants/theme.ts.
 
 Key conventions:

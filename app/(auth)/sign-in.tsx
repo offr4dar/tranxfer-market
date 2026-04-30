@@ -257,41 +257,22 @@ export default function SignInScreen() {
               )}
             </View>
           )}
-
-          <View style={{ flex: 1, minHeight: 36 }} />
-
-          {/* CTA group */}
-          <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 66, 90) }]}>
-            <TouchableOpacity
-              style={[st.btn, (loading || (step === 'code' && !code)) && st.btnDisabled]}
-              onPress={step === 'email' ? handleRequestCode : handleVerifyCode}
-              disabled={loading || (step === 'code' && !code)}
-              activeOpacity={0.85}
-            >
-              {loading
-                ? <ActivityIndicator color="#000" />
-                : <Text style={st.btnText}>{step === 'email' ? 'SEND LOGIN CODE' : 'VERIFY & LOGIN'}</Text>
-              }
-            </TouchableOpacity>
-
-            <View style={st.linkRow}>
-              <TouchableOpacity onPress={handleBack}>
-                <Text style={st.link}>{step === 'code' ? '← Back' : 'Back'}</Text>
-              </TouchableOpacity>
-              {step === 'code' ? (
-                <TouchableOpacity onPress={handleResend} disabled={resent}>
-                  <Text style={[st.link, resent && { opacity: 0.5 }]}>
-                    {resent ? 'Sent ✓' : 'Resend code'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={() => router.replace('/(auth)/onboarding')}>
-                  <Text style={st.link}>Create an account</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
         </ScrollView>
+
+        {/* CTA — fixed to the bottom, outside the scroll */}
+        <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom, 20), paddingHorizontal: H_PAD }]}>
+          <TouchableOpacity
+            style={[st.btn, (loading || (step === 'code' && !code)) && st.btnDisabled]}
+            onPress={step === 'email' ? handleRequestCode : handleVerifyCode}
+            disabled={loading || (step === 'code' && !code)}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color="#000" />
+              : <Text style={st.btnText}>{step === 'email' ? 'SEND LOGIN CODE' : 'VERIFY & LOGIN'}</Text>
+            }
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </View>
   )

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   TextInput,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -16,8 +15,8 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSignIn, useClerk } from '@clerk/clerk-expo'
-import Svg, { Path } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import CloseButton from '@/components/CloseButton'
 import { BlurView } from 'expo-blur'
 
 const { height: H } = Dimensions.get('window')
@@ -31,13 +30,6 @@ const BORDER_ERROR  = '#ff5900'
 const ERROR_RED     = '#ea4335'
 const ACCENT        = '#00FF87'
 
-function CloseIcon() {
-  return (
-    <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-      <Path d="M1 1L20 20M20 1L1 20" stroke="white" strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  )
-}
 
 interface LoginOverlayProps {
   visible: boolean
@@ -252,9 +244,7 @@ export default function LoginOverlay({ visible, onClose }: LoginOverlayProps) {
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>WELCOME BACK</Text>
             <View style={styles.headerLine} />
-            <Pressable onPress={onClose} hitSlop={12}>
-              <CloseIcon />
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </View>
 
           {step === 'email' ? (

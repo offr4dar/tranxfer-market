@@ -4,21 +4,7 @@ import {
 } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Path } from 'react-native-svg'
-
-// ─── Close (×) icon ───────────────────────────────────────────────────────────
-function CloseIcon() {
-  return (
-    <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-      <Path
-        d="M1.5 1.5L19.5 19.5M19.5 1.5L1.5 19.5"
-        stroke="#ffffff"
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  )
-}
+import CloseButton from '@/components/CloseButton'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 type Props = {
@@ -78,14 +64,9 @@ export default function ConfirmCancelModal({
           />
 
           {/* × Close button */}
-          <TouchableOpacity
-            style={st.closeBtn}
-            onPress={onDismiss}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.7}
-          >
-            <CloseIcon />
-          </TouchableOpacity>
+          <View style={st.closeBtn}>
+            <CloseButton onPress={onDismiss} />
+          </View>
 
           {/* Content */}
           <View style={st.content}>

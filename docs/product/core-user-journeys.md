@@ -27,24 +27,32 @@ The player uploads videos in response to weekly challenges, improves their profi
 
 ---
 
-## Freelance Scout Journey
+## Scout Journey
+
+Both club-hired and freelance scouts share the same core journey on the platform. The difference is in what they do with what they find.
 
 ### 1. Discovery & Sign Up
-A scout is invited to the platform by a player requesting their endorsement, or discovers it independently. They sign up and complete onboarding as an Agent/Scout, providing their name, agency (if applicable), regions covered, and years of experience.
+A scout is invited to the platform by a player requesting their endorsement, or discovers it independently. They sign up and complete onboarding as a Scout, providing their name, scout type (club-hired or freelance), agency or club affiliation (if applicable), regions covered, and years of experience.
 
-### 2. Endorsing a Player
-The scout receives a push notification with a player's endorsement request. They view the player's profile, watch their videos, and decide whether to accept or decline. If accepted, they rate the player across six attributes (Technical, Physical, Tactical, Mental, Creativity, Potential) using sliders. Their name appears on the player's card permanently unless they revoke it.
+### 2. Browsing the Feed
+The scout browses the player feed — a chronological, filterable stream of player profiles. They filter by position, age group, and region to surface relevant talent. The feed shows only players; scouts are not surfaced here.
 
-### 3. Discovery & Watchlists
-The scout browses the player feed, filters by position, age group, and region, and saves players they want to track to named watchlists. They add private notes to each player. They can create multiple lists (e.g. "U18 Strikers", "Left Backs — North West").
+### 3. Viewing Player Profiles
+The scout taps into a player's full profile to view their video clips, self-reported attributes, completion score, and any existing scout endorsements. Viewing a profile is logged anonymously and signals interest to the player.
 
-### 4. Building a Portfolio
-The scout logs successful placements — players they have recommended who went on to sign with clubs. These appear as a timeline on their public profile, building their credibility on the platform.
+### 4. Building Watchlists
+The scout saves players they want to track to named watchlists with private notes and tags. They can create multiple lists (e.g. "U18 Strikers", "Left Backs — North West"). Club-hired scouts use these to prepare shortlists for their club. Freelance scouts use them as a working pipeline of talent they are tracking.
 
-### 5. Sharing Shortlists
+### 5. Endorsing a Player
+The scout receives a push notification with a player's endorsement request, or proactively endorses a player they believe in. They view the player's profile, watch their videos, and decide whether to accept or decline. If accepted, they rate the player across six attributes (Technical, Physical, Tactical, Mental, Creativity, Potential) using sliders. Their name appears on the player's card permanently unless they revoke it.
+
+### 6. Sharing Shortlists *(club-hired focus)*
 When presenting to a club, the scout generates a shareable read-only link for a watchlist. The link shows player names, positions, and ages — no contact details — allowing clubs to browse the shortlist without requiring them to be on the platform.
 
-### 6. Ongoing Engagement
+### 7. Building a Portfolio *(freelance focus)*
+The freelance scout logs successful placements — players they have recommended who went on to sign with clubs. These appear as a timeline on their public profile, building their credibility on the platform and making them more attractive to players seeking endorsement.
+
+### 8. Ongoing Engagement
 The scout receives alerts when tracked players upload new videos, gain endorsements, or update their profiles. They use the platform as an ongoing discovery and management tool.
 
 ---
