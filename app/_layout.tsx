@@ -7,6 +7,7 @@ import { View } from 'react-native'
 import { Colors } from '@/constants/theme'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
+import { supabase } from '@/lib/supabase'
 
 // Prevent the native splash from auto-hiding — we control when to hide it.
 // This must be called at module level (before any component renders).
@@ -30,9 +31,18 @@ const tokenCache = {
 
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn, userId } = useAuth()
   const segments = useSegments()
   const router = useRouter()
+
+  async function redirectToHome() {
+    const { data } = await supabase
+      .from('scout_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    router.replace(data ? '/(tabs)/feed' : '/(tabs)/skillfeed')
+  }
 
   useEffect(() => {
     if (!isLoaded) return
@@ -44,7 +54,7 @@ function AuthGuard() {
     const onOnboarding = segs[1] === 'onboarding'
 
     if (isSignedIn && (onSplash || onIndex)) {
-      router.replace('/(tabs)/feed')
+      redirectToHome()
       return
     }
 
@@ -52,7 +62,7 @@ function AuthGuard() {
 
     // Standard guard for all other routes
     if (isSignedIn && inAuthGroup && !onOnboarding) {
-      router.replace('/(tabs)/feed')
+      redirectToHome()
     } else if (!isSignedIn && !inAuthGroup) {
       router.replace('/(auth)/welcome')
     }

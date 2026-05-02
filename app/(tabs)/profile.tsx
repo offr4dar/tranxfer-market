@@ -20,6 +20,29 @@ interface PlayerData {
   bio?: string; is_verified?: boolean; league_level?: string
 }
 
+interface PerformanceLog {
+  id: string
+  match_date: string
+  entry_type: 'match' | 'training' | 'trial'
+  context: string | null
+  goals: number | null
+  assists: number | null
+  rating: number | null
+  notes: string | null
+}
+
+const TYPE_LABEL: Record<PerformanceLog['entry_type'], string> = {
+  match:    'Match',
+  training: 'Training',
+  trial:    'Trial',
+}
+
+const TYPE_COLOR: Record<PerformanceLog['entry_type'], string> = {
+  match:    '#00FF87',
+  training: '#8AABFF',
+  trial:    '#FFB547',
+}
+
 interface ScoutData {
   first_name: string; last_name: string; organisation_name?: string
   scout_type?: string; positions_seeking?: string[]; regions_covered?: string[]
@@ -47,6 +70,7 @@ export default function ProfileScreen() {
   const [role, setRole]   = useState<Role>(null)
   const [data, setData]   = useState<PlayerData | ScoutData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [logs, setLogs]   = useState<PerformanceLog[]>([])
 
   useEffect(() => {
     if (!userId) return
@@ -54,7 +78,19 @@ export default function ProfileScreen() {
       const { data: p } = await supabase
         .from('player_profiles')
         .select('*').eq('user_id', userId).maybeSingle()
-      if (p) { setRole('player'); setData(p); setLoading(false); return }
+      if (p) {
+        setRole('player')
+        setData(p)
+        setLoading(false)
+        const { data: l } = await supabase
+          .from('performance_logs')
+          .select('id,match_date,entry_type,context,goals,assists,rating,notes')
+          .eq('user_id', userId)
+          .order('match_date', { ascending: false })
+          .limit(5)
+        setLogs(l ?? [])
+        return
+      }
 
       const { data: a } = await supabase
         .from('scout_profiles')
@@ -136,6 +172,49 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* ── Recent activity (players only) ── */}
+      {player && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Recent activity</Text>
+          {logs.length === 0 ? (
+            <Text style={styles.emptyLogs}>No activity yet — log your first match or session.</Text>
+          ) : (
+            logs.map(log => {
+              const color = TYPE_COLOR[log.entry_type]
+              const d     = new Date(log.match_date)
+              const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+              return (
+                <View key={log.id} style={styles.logRow}>
+                  <View style={[styles.logTypePill, { borderColor: color }]}>
+                    <Text style={[styles.logTypeText, { color }]}>{TYPE_LABEL[log.entry_type]}</Text>
+                  </View>
+                  <View style={styles.logMid}>
+                    {log.context ? (
+                      <Text style={styles.logContext} numberOfLines={1}>{log.context}</Text>
+                    ) : (
+                      <Text style={styles.logContextMuted}>—</Text>
+                    )}
+                    {log.entry_type === 'match' && (log.goals != null || log.assists != null) && (
+                      <Text style={styles.logStats}>
+                        {log.goals ?? 0}G · {log.assists ?? 0}A
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.logRight}>
+                    {log.rating != null && (
+                      <View style={[styles.ratingBadge, { borderColor: color }]}>
+                        <Text style={[styles.ratingBadgeText, { color }]}>{log.rating}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.logDate}>{dateStr}</Text>
+                  </View>
+                </View>
+              )
+            })
+          )}
         </View>
       )}
 
@@ -261,6 +340,30 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: 4, backgroundColor: Colors.brand, borderRadius: 2 },
   progressHint: { color: Colors.textMuted, fontSize: 12, lineHeight: 18 },
+
+  emptyLogs: { color: Colors.textMuted, fontSize: 13, lineHeight: 20 },
+  logRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  logTypePill: {
+    borderWidth: 1, borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+    minWidth: 68, alignItems: 'center',
+  },
+  logTypeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
+  logMid:      { flex: 1, gap: 2 },
+  logContext:  { fontSize: 13, color: Colors.text, fontWeight: '500' },
+  logContextMuted: { fontSize: 13, color: Colors.textMuted },
+  logStats:    { fontSize: 11, color: Colors.textSecondary },
+  logRight:    { alignItems: 'flex-end', gap: 4 },
+  ratingBadge: {
+    borderWidth: 1.5, borderRadius: Radius.sm,
+    width: 28, height: 28, alignItems: 'center', justifyContent: 'center',
+  },
+  ratingBadgeText: { fontSize: 12, fontWeight: '800' },
+  logDate:     { fontSize: 11, color: Colors.textMuted },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: {

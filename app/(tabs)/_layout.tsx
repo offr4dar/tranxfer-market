@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { Tabs } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
+import * as Updates from 'expo-updates'
 import { supabase } from '@/lib/supabase'
 import {
-  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
+  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon, SkillFeedIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
+
+const showRoleSwitcher = __DEV__ || Updates.channel === 'preview'
 
 // ─── Unread badge overlay ─────────────────────────────────────────────────────
 function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
@@ -91,10 +94,17 @@ function TabsContent() {
 
       {/* ── Player-only tabs ──────────────────────────────────────────────── */}
       <Tabs.Screen
+        name="skillfeed"
+        options={{
+          title: 'Skill Feed',
+          href: isPlayer ? undefined : null,
+          tabBarIcon: ({ color, size }) => <SkillFeedIcon color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          href: isPlayer ? undefined : null,
           tabBarIcon: ({ color, size }) => <ProfileIcon color={color} size={size} />,
         }}
       />
@@ -136,7 +146,7 @@ export default function TabsLayout() {
   return (
     <DevRoleProvider>
       <TabsContent />
-      {__DEV__ && <DevRoleSwitcher />}
+      {showRoleSwitcher && <DevRoleSwitcher />}
     </DevRoleProvider>
   )
 }

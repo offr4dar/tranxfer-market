@@ -46,6 +46,7 @@ export interface PlayerProfile {
   profile_completion_score?: number
   lat?: number | null
   lng?: number | null
+  last_activity_at?: string | null
   created_at?: string
   updated_at?: string
 }

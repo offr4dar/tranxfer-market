@@ -59,12 +59,13 @@ export default function FeedScreen() {
 
   const fetchScoutContext = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('scout_profiles')
       .select('id, subscription_tier, clearance_check, lat, lng')
       .eq('user_id', userId)
       .maybeSingle()
 
+    if (error) console.error('fetchScoutContext:', error.message)
     if (!data) return
 
     setIsScout(true)
@@ -73,11 +74,12 @@ export default function FeedScreen() {
     setScoutLat(data.lat ?? null)
     setScoutLng(data.lng ?? null)
 
-    const { data: watchlist } = await supabase
+    const { data: watchlist, error: watchlistErr } = await supabase
       .from('watchlist_items')
       .select('player_id')
       .eq('scout_id', userId)
 
+    if (watchlistErr) console.error('fetchScoutContext watchlist:', watchlistErr.message)
     if (watchlist) {
       setShortlistedIds(new Set(watchlist.map(w => w.player_id)))
     }
@@ -85,11 +87,12 @@ export default function FeedScreen() {
 
   const fetchPlayerContext = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('player_profiles')
       .select('lat, lng')
       .eq('user_id', userId)
       .maybeSingle()
+    if (error) console.error('fetchPlayerContext:', error.message)
     if (data) {
       setPlayerLat(data.lat ?? null)
       setPlayerLng(data.lng ?? null)
@@ -99,7 +102,7 @@ export default function FeedScreen() {
   const fetchPlayers = useCallback(async () => {
     let query = supabase
       .from('player_profiles')
-      .select('id,user_id,first_name,last_name,primary_position,secondary_positions,age,current_club,contract_status,nationality,is_verified,is_featured,appearances,goals,assists,lat,lng')
+      .select('id,user_id,first_name,last_name,primary_position,secondary_positions,age,current_club,contract_status,nationality,is_verified,is_featured,appearances,goals,assists,lat,lng,last_activity_at')
       .eq('is_searchable', true)
       .order('is_featured', { ascending: false })
       .order('created_at', { ascending: false })
@@ -122,7 +125,8 @@ export default function FeedScreen() {
     }
 
     const { data, error } = await query
-    if (!error && data) setPlayers(data as PlayerProfile[])
+    if (error) console.error('fetchPlayers:', error.message)
+    else if (data) setPlayers(data as PlayerProfile[])
   }, [filters, submittedQuery])
 
   useEffect(() => {

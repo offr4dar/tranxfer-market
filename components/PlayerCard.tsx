@@ -3,6 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { PlayerProfile, ContractStatus } from '@/types'
 
+function activityLabel(dateStr: string | null | undefined): { text: string; color: string } | null {
+  if (!dateStr) return null
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+  if (days === 0) return { text: 'Active today',        color: '#00FF87' }
+  if (days <= 7)  return { text: `Active ${days}d ago`, color: '#00FF87' }
+  if (days <= 30) return { text: `Active ${Math.ceil(days / 7)}w ago`, color: '#C49B1E' }
+  return null
+}
+
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS: Record<string, { label: string; bg: string; text: string; border?: string }> = {
   available_now: {
@@ -41,7 +50,8 @@ export default function PlayerCard({ player, onPress, scoutId, isShortlisted = f
   const [shortlisted, setShortlisted] = useState(isShortlisted)
   const [toggling, setToggling] = useState(false)
 
-  const isScout = !!scoutId
+  const isScout  = !!scoutId
+  const activity = activityLabel(player.last_activity_at)
 
   // Redact identity for unsubscribed scouts
   const displayFirstName = isScout && !isSubscribed
@@ -132,23 +142,28 @@ export default function PlayerCard({ player, onPress, scoutId, isShortlisted = f
         </View>
 
         {/* Meta + shortlist */}
-        {meta ? (
-          <View style={styles.metaRow}>
-            <Text style={styles.meta}>{meta}</Text>
-            {isScout && (
-              <TouchableOpacity
-                onPress={toggleShortlist}
-                disabled={toggling}
-                activeOpacity={0.65}
-                style={[styles.shortlistBtn, shortlisted && styles.shortlistBtnActive]}
-              >
-                <Text style={[styles.shortlist, shortlisted && styles.shortlistActive]}>
-                  {shortlisted ? '✓ SHORTLISTED' : 'SHORTLIST'}
-                </Text>
-              </TouchableOpacity>
+        <View style={styles.metaRow}>
+          <View style={styles.metaLeft}>
+            {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+            {activity && (
+              <View style={[styles.activityPill, { borderColor: activity.color }]}>
+                <Text style={[styles.activityText, { color: activity.color }]}>{activity.text}</Text>
+              </View>
             )}
           </View>
-        ) : null}
+          {isScout && (
+            <TouchableOpacity
+              onPress={toggleShortlist}
+              disabled={toggling}
+              activeOpacity={0.65}
+              style={[styles.shortlistBtn, shortlisted && styles.shortlistBtnActive]}
+            >
+              <Text style={[styles.shortlist, shortlisted && styles.shortlistActive]}>
+                {shortlisted ? '✓ SHORTLISTED' : 'SHORTLIST'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   )
@@ -256,10 +271,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  metaLeft: {
+    flex: 1,
+    gap: 6,
+  },
   meta: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.4)',
     letterSpacing: 0.3,
+  },
+  activityPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activityText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   shortlistBtn: {
     paddingHorizontal: 10,
