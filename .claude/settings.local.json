@@ -26,7 +26,13 @@
       "Bash(curl -s -X POST http://localhost:8081/reload)",
       "Bash(curl -s http://localhost:8081/status)",
       "Bash(curl -s \"http://localhost:8081/app/\\(tabs\\)/_layout.tsx\" -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s \"http://localhost:8081/logs\")"
+      "Bash(curl -s \"http://localhost:8081/logs\")",
+      "Bash(supabase status *)",
+      "Bash(npm install *)",
+      "Bash(git add *)",
+      "mcp__figma__get_screenshot",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

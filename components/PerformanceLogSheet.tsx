@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Animated, PanResponder,
+  ActivityIndicator, Animated, PanResponder, Dimensions,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@clerk/clerk-expo'
@@ -43,6 +43,8 @@ const ENTRY_CONFIG: Record<EntryType, {
   },
 }
 
+const SCREEN_H = Dimensions.get('window').height
+
 interface Props {
   visible: boolean
   onClose: () => void
@@ -61,24 +63,26 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState<string | null>(null)
 
-  // Sheet slide animation
-  const [isShown, setIsShown] = useState(false)
-  const sheetY           = useRef(new Animated.Value(700)).current
-  const isDraggingClose  = useRef(false)
+  // Measure the Match tab's form area height once, then lock all tabs to it
+  const [formMinHeight, setFormMinHeight] = useState<number | undefined>(undefined)
+  const matchHeightCaptured = useRef(false)
+
+  const [isShown, setIsShown]   = useState(false)
+  const sheetY                  = useRef(new Animated.Value(SCREEN_H)).current
+  const isDraggingClose         = useRef(false)
 
   useEffect(() => {
     if (visible) {
       isDraggingClose.current = false
       setIsShown(true)
-      sheetY.setValue(700)
+      sheetY.setValue(SCREEN_H)
       Animated.timing(sheetY, { toValue: 0, duration: 300, useNativeDriver: true }).start()
     } else if (!isDraggingClose.current) {
-      Animated.timing(sheetY, { toValue: 700, duration: 240, useNativeDriver: true })
+      Animated.timing(sheetY, { toValue: SCREEN_H, duration: 240, useNativeDriver: true })
         .start(() => setIsShown(false))
     }
   }, [visible])
 
-  // Drag-to-dismiss on the handle
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -89,7 +93,7 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
       onPanResponderRelease: (_, { dy, vy }) => {
         if (dy > 100 || vy > 0.5) {
           isDraggingClose.current = true
-          Animated.timing(sheetY, { toValue: 700, duration: 220, useNativeDriver: true })
+          Animated.timing(sheetY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
             .start(() => {
               setIsShown(false)
               handleClose()
@@ -101,7 +105,6 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
     })
   ).current
 
-  // Animated sliding pill for tab selector
   const slideAnim = useRef(new Animated.Value(0)).current
   const [tabWidth, setTabWidth] = useState(0)
 
@@ -178,7 +181,7 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
         >
           <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md, transform: [{ translateY: sheetY }] }]}>
 
-            {/* Draggable handle area */}
+            {/* Draggable handle */}
             <View style={styles.handleArea} {...panResponder.panHandlers}>
               <View style={styles.handle} />
             </View>
@@ -191,98 +194,117 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
               </TouchableOpacity>
             </View>
 
-            {/* Entry type — animated sliding tab */}
-            <Text style={styles.sectionLabel}>Type</Text>
-            <View style={styles.tabContainer}>
-              <View
-                style={styles.tabRow}
-                onLayout={e => setTabWidth(e.nativeEvent.layout.width / TABS.length)}
-              >
-                {tabWidth > 0 && (
-                  <Animated.View
-                    style={[styles.tabSlider, { width: tabWidth, transform: [{ translateX: slideAnim }] }]}
-                  />
-                )}
-                {TABS.map((tab, index) => (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={styles.tab}
-                    onPress={() => handleTypeChange(tab.key, index)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.tabLabel, entryType === tab.key && styles.tabLabelActive]}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/*
+              Form content area.
+              onLayout captures the Match tab height on first render and stores it as
+              minHeight so all other tabs expand to fill the same space.
+            */}
+            <View
+              style={[styles.formContent, formMinHeight !== undefined && { minHeight: formMinHeight }]}
+              onLayout={e => {
+                if (entryType === 'match' && !matchHeightCaptured.current) {
+                  matchHeightCaptured.current = true
+                  setFormMinHeight(e.nativeEvent.layout.height)
+                }
+              }}
+            >
+              {/* Entry type tabs */}
+              <Text style={styles.sectionLabel}>Type</Text>
+              <View style={styles.tabContainer}>
+                <View
+                  style={styles.tabRow}
+                  onLayout={e => setTabWidth(e.nativeEvent.layout.width / TABS.length)}
+                >
+                  {tabWidth > 0 && (
+                    <Animated.View
+                      style={[styles.tabSlider, { width: tabWidth, transform: [{ translateX: slideAnim }] }]}
+                    />
+                  )}
+                  {TABS.map((tab, index) => (
+                    <TouchableOpacity
+                      key={tab.key}
+                      style={styles.tab}
+                      onPress={() => handleTypeChange(tab.key, index)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.tabLabel, entryType === tab.key && styles.tabLabelActive]}>
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
+
+              {/* Contextual input */}
+              <Text style={styles.fieldLabel}>{config.contextLabel}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={config.contextPlaceholder}
+                placeholderTextColor="#909090"
+                value={context}
+                onChangeText={setContext}
+                returnKeyType="next"
+              />
+
+              {/* Goals + Assists — match only */}
+              {config.showStats && (
+                <View style={styles.statsRow}>
+                  <View style={styles.statField}>
+                    <Text style={styles.fieldLabel}>Goals</Text>
+                    <TextInput
+                      style={[styles.input, styles.statInput]}
+                      placeholder="0"
+                      placeholderTextColor="#909090"
+                      keyboardType="number-pad"
+                      value={goals}
+                      onChangeText={v => setGoals(v.replace(/[^0-9]/g, ''))}
+                      maxLength={2}
+                    />
+                  </View>
+                  <View style={styles.statField}>
+                    <Text style={styles.fieldLabel}>Assists</Text>
+                    <TextInput
+                      style={[styles.input, styles.statInput]}
+                      placeholder="0"
+                      placeholderTextColor="#909090"
+                      keyboardType="number-pad"
+                      value={assists}
+                      onChangeText={v => setAssists(v.replace(/[^0-9]/g, ''))}
+                      maxLength={2}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Notes */}
+              <Text style={styles.fieldLabel}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.notesInput]}
+                placeholder={config.notesPlaceholder}
+                placeholderTextColor="#909090"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                textAlignVertical="top"
+              />
             </View>
 
-            {/* Contextual input */}
-            <Text style={styles.fieldLabel}>{config.contextLabel}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={config.contextPlaceholder}
-              placeholderTextColor="#909090"
-              value={context}
-              onChangeText={setContext}
-              returnKeyType="next"
-            />
+            {/* CTA — always at the bottom of the sheet */}
+            <View style={styles.ctaSection}>
+              {error && <Text style={styles.error}>{error}</Text>}
+              <TouchableOpacity
+                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving
+                  ? <ActivityIndicator color="#000" />
+                  : <Text style={styles.saveBtnText}>SAVE</Text>
+                }
+              </TouchableOpacity>
+            </View>
 
-            {/* Goals + Assists — match only */}
-            {config.showStats && (
-              <View style={styles.statsRow}>
-                <View style={styles.statField}>
-                  <Text style={styles.fieldLabel}>Goals</Text>
-                  <TextInput
-                    style={[styles.input, styles.statInput]}
-                    placeholder="0"
-                    placeholderTextColor="#909090"
-                    keyboardType="number-pad"
-                    value={goals}
-                    onChangeText={v => setGoals(v.replace(/[^0-9]/g, ''))}
-                    maxLength={2}
-                  />
-                </View>
-                <View style={styles.statField}>
-                  <Text style={styles.fieldLabel}>Assists</Text>
-                  <TextInput
-                    style={[styles.input, styles.statInput]}
-                    placeholder="0"
-                    placeholderTextColor="#909090"
-                    keyboardType="number-pad"
-                    value={assists}
-                    onChangeText={v => setAssists(v.replace(/[^0-9]/g, ''))}
-                    maxLength={2}
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* Notes */}
-            <Text style={styles.fieldLabel}>Notes</Text>
-            <TextInput
-              style={[styles.input, styles.notesInput]}
-              placeholder={config.notesPlaceholder}
-              placeholderTextColor="#909090"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              textAlignVertical="top"
-            />
-
-            {error && <Text style={styles.error}>{error}</Text>}
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving
-                ? <ActivityIndicator color="#000" />
-                : <Text style={styles.saveBtnText}>SAVE</Text>
-              }
-            </TouchableOpacity>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
@@ -331,6 +353,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     letterSpacing: 0.32,
+  },
+  formContent: {
+    // minHeight set dynamically to Match tab height after first render
+  },
+  ctaSection: {
+    paddingTop: Spacing.md,
   },
   sectionLabel: {
     fontSize: 12,
@@ -410,7 +438,7 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 14,
     color: Colors.error,
-    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -420,7 +448,6 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
   },
   saveBtnDisabled: {

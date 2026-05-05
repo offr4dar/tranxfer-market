@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, ActivityIndicator, Animated,
@@ -6,6 +6,7 @@ import {
 import Svg, { Path, Circle, G } from 'react-native-svg'
 import { useAuth } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
@@ -82,90 +83,77 @@ export default function ProfileScreen() {
     totalShortlists: number
   } | null>(null)
 
-  useEffect(() => {
+  const fetchProfile = useCallback(async () => {
     if (!userId) return
-    ;(async () => {
-      const { data: p } = await supabase
-        .from('player_profiles')
-        .select('*').eq('user_id', userId).maybeSingle()
-      if (p) {
-        setRole('player')
-        setData(p)
-        setLoading(false)
 
-        // Build Mon–Sun buckets for the current ISO week
-        const today = new Date()
-        const dow = today.getDay() // 0=Sun, 1=Mon … 6=Sat
-        const toMonday = dow === 0 ? -6 : 1 - dow
-        const monday = new Date(today)
-        monday.setDate(today.getDate() + toMonday)
+    const { data: p } = await supabase
+      .from('player_profiles')
+      .select('*').eq('user_id', userId).maybeSingle()
 
-        const days: string[] = []
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(monday)
-          d.setDate(monday.getDate() + i)
-          days.push(d.toISOString().split('T')[0])
-        }
-        const since = days[0] + 'T00:00:00'
-
-        const [
-          { data: viewRows },
-          { data: shortRows },
-          { count: totalLogCount },
-          { count: weekLogCount },
-        ] = await Promise.all([
-          supabase
-            .from('profile_views')
-            .select('viewed_at')
-            .eq('player_id', userId)
-            .gte('viewed_at', since),
-          supabase
-            .from('watchlist_items')
-            .select('created_at')
-            .eq('player_id', p.id)
-            .gte('created_at', since),
-          supabase
-            .from('performance_logs')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase
-            .from('performance_logs')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .gte('match_date', since),
-        ])
-
-        setTotalLogs(totalLogCount ?? 0)
-        setWeekLogs(weekLogCount ?? 0)
-
-        // Aggregate into daily buckets
-        const viewMap: Record<string, number>  = {}
-        const shortMap: Record<string, number> = {}
-        days.forEach(d => { viewMap[d] = 0; shortMap[d] = 0 })
-        viewRows?.forEach(r  => { const d = r.viewed_at.split('T')[0];  if (d in viewMap)  viewMap[d]++ })
-        shortRows?.forEach(r => { const d = (r.created_at as string).split('T')[0]; if (d in shortMap) shortMap[d]++ })
-
-        const viewPoints      = days.map(d => viewMap[d])
-        const shortlistPoints = days.map(d => shortMap[d])
-        const dayLabels       = days.map(d => new Date(d).toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3))
-
-        setInsights({
-          viewPoints,
-          shortlistPoints,
-          dayLabels,
-          totalViews:      viewPoints.reduce((a, b)      => a + b, 0),
-          totalShortlists: shortlistPoints.reduce((a, b) => a + b, 0),
-        })
-        return
-      }
-
-      const { data: a } = await supabase
-        .from('scout_profiles')
-        .select('*').eq('user_id', userId).maybeSingle()
-      if (a) { setRole('scout'); setData(a as unknown as PlayerData) }
+    if (p) {
+      setRole('player')
+      setData(p)
       setLoading(false)
-    })()
+
+      // Build Mon–Sun buckets for the current ISO week
+      const today = new Date()
+      const dow = today.getDay()
+      const toMonday = dow === 0 ? -6 : 1 - dow
+      const monday = new Date(today)
+      monday.setDate(today.getDate() + toMonday)
+
+      const days: string[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        days.push(d.toISOString().split('T')[0])
+      }
+      const since = days[0] + 'T00:00:00'
+
+      const [
+        { data: viewRows },
+        { data: shortRows },
+        { count: totalLogCount },
+        { count: weekLogCount },
+      ] = await Promise.all([
+        supabase.from('profile_views').select('viewed_at').eq('player_id', userId).gte('viewed_at', since),
+        supabase.from('watchlist_items').select('created_at').eq('player_id', p.id).gte('created_at', since),
+        supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('match_date', since),
+      ])
+
+      setTotalLogs(totalLogCount ?? 0)
+      setWeekLogs(weekLogCount ?? 0)
+
+      const viewMap: Record<string, number>  = {}
+      const shortMap: Record<string, number> = {}
+      days.forEach(d => { viewMap[d] = 0; shortMap[d] = 0 })
+      viewRows?.forEach(r  => { const d = r.viewed_at.split('T')[0];  if (d in viewMap)  viewMap[d]++ })
+      shortRows?.forEach(r => { const d = (r.created_at as string).split('T')[0]; if (d in shortMap) shortMap[d]++ })
+
+      const viewPoints      = days.map(d => viewMap[d])
+      const shortlistPoints = days.map(d => shortMap[d])
+      const dayLabels       = days.map(d => new Date(d).toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3))
+
+      setInsights({
+        viewPoints,
+        shortlistPoints,
+        dayLabels,
+        totalViews:      viewPoints.reduce((a, b) => a + b, 0),
+        totalShortlists: shortlistPoints.reduce((a, b) => a + b, 0),
+      })
+      return
+    }
+
+    const { data: a } = await supabase
+      .from('scout_profiles')
+      .select('*').eq('user_id', userId).maybeSingle()
+    if (a) { setRole('scout'); setData(a as unknown as PlayerData) }
+    setLoading(false)
   }, [userId])
+
+  // Re-fetch whenever this screen comes into focus (covers initial load + returning from edit-profile)
+  useFocusEffect(useCallback(() => { fetchProfile() }, [fetchProfile]))
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.brand} /></View>
@@ -198,7 +186,7 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content}>
       {/* ── Edit / Settings row ── */}
       <View style={styles.editRow}>
-        <TouchableOpacity style={styles.editBtn} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.editBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile' as any)}>
           <Text style={styles.editLabel}>Edit Profile</Text>
           <EditIcon />
         </TouchableOpacity>

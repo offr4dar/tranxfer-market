@@ -101,6 +101,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="edit-profile" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
       </View>
     </ClerkProvider>
