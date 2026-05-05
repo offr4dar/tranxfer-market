@@ -66,6 +66,7 @@ function TabsContent() {
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
+      initialRouteName="profile"
       screenOptions={{
         headerShown: false,
         lazy: false,
