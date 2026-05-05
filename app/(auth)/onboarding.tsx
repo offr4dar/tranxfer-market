@@ -45,25 +45,6 @@ interface WizardData {
 const INIT: WizardData = { role: null, scoutType: null, gender: null, foot: null, positions: [], firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false, dbsConfirmed: false }
 const AGES = Array.from({ length: 60 }, (_, i) => String(i + 16))
 
-// ─── Nationalities ────────────────────────────────────────────────────────────
-const NATIONALITIES = [
-  'Albanian', 'Algerian', 'American', 'Angolan', 'Argentine', 'Armenian',
-  'Australian', 'Austrian', 'Azerbaijani', 'Belarusian', 'Belgian', 'Beninese',
-  'Bolivian', 'Bosnian', 'Brazilian', 'Bulgarian', 'Burundian', 'Cameroonian',
-  'Canadian', 'Chilean', 'Chinese', 'Colombian', 'Congolese', 'Croatian',
-  'Czech', 'Danish', 'Dutch', 'Ecuadorian', 'Egyptian', 'English',
-  'Estonian', 'Ethiopian', 'Finnish', 'French', 'Gambian', 'Georgian',
-  'German', 'Ghanaian', 'Greek', 'Guinean', 'Hungarian', 'Indian',
-  'Irish', 'Ivorian', 'Jamaican', 'Japanese', 'Kenyan', 'Kosovan',
-  'Latvian', 'Liberian', 'Lithuanian', 'Macedonian', 'Malian', 'Mexican',
-  'Moldovan', 'Montenegrin', 'Moroccan', 'Mozambican', 'Nigerian',
-  'Northern Irish', 'Norwegian', 'Paraguayan', 'Peruvian', 'Polish',
-  'Portuguese', 'Romanian', 'Russian', 'Rwandan', 'Scottish', 'Senegalese',
-  'Serbian', 'Sierra Leonean', 'Slovak', 'Slovenian', 'South African',
-  'South Korean', 'Spanish', 'Swedish', 'Swiss', 'Tanzanian', 'Togolese',
-  'Trinidadian', 'Tunisian', 'Turkish', 'Ugandan', 'Ukrainian', 'Uruguayan',
-  'Venezuelan', 'Welsh', 'Zimbabwean',
-].sort()
 
 const GENDERS: { key: GenderType; label: string }[] = [
   { key: 'male', label: 'Male' },
@@ -306,6 +287,17 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
             <Text style={data.age ? fs.val : fs.ph}>{data.age || 'Select age'}</Text>
             <ChevronDown />
           </TouchableOpacity>
+          {!!data.age && (() => {
+            const age = parseInt(data.age, 10)
+            const now = new Date()
+            const ageOnCutoff = now.getMonth() >= 8 ? age + 1 : age
+            const group = `U${ageOnCutoff + 1}`
+            return (
+              <Text style={fs.hint}>
+                You are in the <Text style={{ color: ACCENT, fontWeight: '700' }}>{group}</Text> age group this season (Aug 31 cutoff)
+              </Text>
+            )
+          })()}
         </View>
       )}
 
@@ -499,10 +491,6 @@ function YourGameStep({ data, onChange }: { data: WizardData; onChange: (d: Part
     </View>
   )
 }
-const yg = StyleSheet.create({
-  searchWrap:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
-  searchInput: { height: 40, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 8, paddingHorizontal: 12, fontSize: 15, color: '#fff' },
-})
 
 // ─── Step 3: Your details (name) ─────────────────────────────────────────────
 
@@ -811,7 +799,6 @@ export default function OnboardingScreen() {
   const goNext = async () => {
     const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
-    const isScout  = data.role === 'scout'
     const lastStep = 4
     // Navigate forward
     if (step < lastStep) {

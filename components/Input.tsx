@@ -1,14 +1,15 @@
 import { forwardRef, ReactNode } from 'react'
-import { View, TextInput, TextInputProps, StyleSheet } from 'react-native'
+import { View, TextInput, TextInputProps, StyleSheet, StyleProp, ViewStyle } from 'react-native'
 
 interface Props extends TextInputProps {
   leftIcon?: ReactNode
   rightElement?: ReactNode
+  containerStyle?: StyleProp<ViewStyle>
 }
 
 const Input = forwardRef<TextInput, Props>(
-  ({ leftIcon, rightElement, style, ...props }, ref) => (
-    <View style={[styles.container, (leftIcon || rightElement) && styles.withSlots]}>
+  ({ leftIcon, rightElement, style, containerStyle, ...props }, ref) => (
+    <View style={[styles.container, !!(leftIcon || rightElement) && styles.withSlots, containerStyle]}>
       {leftIcon}
       <TextInput
         ref={ref}

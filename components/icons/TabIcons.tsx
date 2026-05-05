@@ -90,17 +90,38 @@ export function ProfileIcon({ color, size = 20 }: IconProps) {
 // ─── XLogoMark — kept for use outside the tab bar (e.g. headers) ─────────────
 export function XLogoMark({
   color = '#00FF87',
-  size = 40,
+  size = 57,
 }: {
   color?: string
   size?: number
 }) {
-  const h = Math.round(size * 20 / 19)
+  const h = Math.round(size * 37 / 57)
   return (
-    <Svg width={size} height={h} viewBox="0 0 19 20" fill="none">
+    <Svg width={size} height={h} viewBox="0 0 57 37" fill="none">
       <Path
-        d="M10.3915 17.817L16.2798 16.5811L12.639 9.1573L19 0L13.1117 1.23596L10.6735 4.7191L10.4828 4.75923L9.16412 2.0626L3.18464 3.31461L6.7093 10.4013L0 20L5.97949 18.748L8.66652 14.8636L8.90703 14.8154L10.3915 17.817Z"
+        d="M9.94029 17.484L15.5728 16.2712L12.0902 8.98617L18.1749 0L12.5424 1.21286L10.21 4.63091L10.0275 4.67029L8.76617 2.02405L3.04635 3.25266L6.41795 10.2069L0 19.6262L5.71983 18.3976L8.29018 14.5858L8.52024 14.5385L9.94029 17.484Z"
         fill={color}
+      />
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M1.06305 31.4083L57 19.6262L55.937 25.218L0 37L1.06305 31.4083Z"
+        fill={color}
+      />
+    </Svg>
+  )
+}
+
+// ─── SkillFeed — play button (24×24) ─────────────────────────────────────────
+export function SkillFeedIcon({ color, size = 20 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 4L20 12L6 20V4Z"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   )

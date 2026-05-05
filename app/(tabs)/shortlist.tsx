@@ -28,12 +28,13 @@ export default function ShortlistScreen() {
   const fetchShortlist = useCallback(async () => {
     if (!userId) return
 
-    const { data: scout } = await supabase
+    const { data: scout, error: scoutErr } = await supabase
       .from('scout_profiles')
       .select('id, subscription_tier')
       .eq('user_id', userId)
       .maybeSingle()
 
+    if (scoutErr) console.error('fetchShortlist scout:', scoutErr.message)
     if (!scout) {
       setIsScout(false)
       return
@@ -42,12 +43,13 @@ export default function ShortlistScreen() {
     setIsScout(true)
     setIsSubscribed(scout.subscription_tier !== 'free' && scout.subscription_tier != null)
 
-    const { data: watchlist } = await supabase
+    const { data: watchlist, error: watchlistErr } = await supabase
       .from('watchlist_items')
       .select('player_id')
       .eq('scout_id', userId)
       .order('created_at', { ascending: false })
 
+    if (watchlistErr) console.error('fetchShortlist watchlist:', watchlistErr.message)
     if (!watchlist || watchlist.length === 0) {
       setPlayers([])
       return
@@ -55,10 +57,11 @@ export default function ShortlistScreen() {
 
     const ids = watchlist.map(w => w.player_id)
 
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileErr } = await supabase
       .from('player_profiles')
       .select('id,user_id,first_name,last_name,primary_position,secondary_positions,age,current_club,contract_status,nationality,is_verified,appearances,goals,assists')
       .in('id', ids)
+    if (profileErr) console.error('fetchShortlist profiles:', profileErr.message)
 
     if (profileData) {
       // Preserve watchlist order

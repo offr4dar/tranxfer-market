@@ -40,7 +40,8 @@ export default function MessagesScreen() {
 
   const fetchConvos = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase.rpc('get_user_conversations', { p_user_id: userId })
+    const { data, error } = await supabase.rpc('get_user_conversations', { p_user_id: userId })
+    if (error) console.error('fetchConvos:', error.message)
     setConvos((data as Conversation[]) ?? [])
     setLoading(false)
   }, [userId])

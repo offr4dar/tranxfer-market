@@ -40,6 +40,7 @@ export default function FeedScreen() {
   // Search state — input value vs submitted value (fetch only triggers on submit)
   const [searchQuery, setSearchQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
 
   // Scout-specific state (real data)
   const [isScout, setIsScout] = useState(false)
@@ -220,34 +221,37 @@ export default function FeedScreen() {
     <ScreenBackground>
       <ScreenHeader
         right={
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterOpen(true)}
-            activeOpacity={0.7}
-          >
-            <FilterIcon color={Colors.brand} size={30} />
-            {active && <View style={styles.filterDot} />}
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {resolvedIsScout && (
+              <Input
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Name, club, nationality…"
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                leftIcon={<SearchIcon color="#909090" size={16} />}
+                rightElement={
+                  searchQuery.length > 0
+                    ? <CloseButton onPress={handleClearSearch} size={14} />
+                    : undefined
+                }
+                containerStyle={[styles.searchInput, searchFocused && styles.searchInputFocused]}
+                style={styles.searchText}
+              />
+            )}
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setFilterOpen(true)}
+              activeOpacity={0.7}
+            >
+              <FilterIcon color={Colors.brand} size={30} />
+              {active && <View style={styles.filterDot} />}
+            </TouchableOpacity>
+          </View>
         }
       />
-
-      {resolvedIsScout && (
-        <View style={styles.searchRow}>
-          <Input
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Name, club, nationality…"
-            returnKeyType="search"
-            onSubmitEditing={handleSearch}
-            leftIcon={<SearchIcon color="#909090" size={20} />}
-            rightElement={
-              searchQuery.length > 0
-                ? <CloseButton onPress={handleClearSearch} size={16} />
-                : undefined
-            }
-          />
-        </View>
-      )}
 
       {loading ? (
         <View style={styles.center}>
@@ -311,16 +315,29 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    height: 38,
+    backgroundColor: '#111111',
+    borderRadius: 100,
+    borderColor: 'transparent',
+  },
+  searchInputFocused: {
+    borderColor: '#555555',
+  },
+  searchText: {
+    fontSize: 14,
+  },
   filterBtn: { padding: 4 },
   filterDot: {
     position: 'absolute', top: 2, right: 2,
     width: 7, height: 7, borderRadius: 3.5,
     backgroundColor: '#0F5FFF',
-  },
-  searchRow: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
   },
   list:   { padding: 16, paddingTop: 12, paddingBottom: 200 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

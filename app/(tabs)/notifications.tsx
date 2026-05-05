@@ -7,7 +7,7 @@ import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { Colors, Spacing } from '@/constants/theme'
 
 interface Notification {
   id: string
@@ -61,12 +61,13 @@ export default function NotificationsScreen() {
 
   const fetchNotifs = useCallback(async () => {
     if (!userId) return
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(60)
+    if (error) console.error('fetchNotifs:', error.message)
     setSections(groupByDate((data as Notification[]) ?? []))
     setLoading(false)
   }, [userId])
