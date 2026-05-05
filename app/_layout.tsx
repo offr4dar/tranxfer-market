@@ -7,7 +7,6 @@ import { View } from 'react-native'
 import { Colors } from '@/constants/theme'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
-import { supabase } from '@/lib/supabase'
 
 // Prevent the native splash from auto-hiding — we control when to hide it.
 // This must be called at module level (before any component renders).
@@ -31,17 +30,12 @@ const tokenCache = {
 
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
-  const { isLoaded, isSignedIn, userId } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
   const segments = useSegments()
   const router = useRouter()
 
-  async function redirectToHome() {
-    const { data } = await supabase
-      .from('scout_profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle()
-    router.replace(data ? '/(tabs)/feed' : '/(tabs)/skillfeed')
+  function redirectToHome() {
+    router.replace('/(tabs)/profile')
   }
 
   useEffect(() => {
@@ -105,6 +99,8 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ animation: 'slide_from_right' }} />
           {/* Tabs: slides in, no back gesture once authenticated */}
           <Stack.Screen name="(tabs)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
       </View>
     </ClerkProvider>

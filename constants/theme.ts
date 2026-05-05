@@ -1,7 +1,7 @@
 export const Colors = {
   brand: '#00FF87',
   brandDark: '#00CC6A',
-  background: '#0A0F1E',
+  background: '#0E0E0E',
   surface: '#0D1526',
   surfaceElevated: '#111827',
   border: 'rgba(255,255,255,0.08)',

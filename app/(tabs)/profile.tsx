@@ -1,14 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Animated,
 } from 'react-native'
+import Svg, { Path, Circle, G } from 'react-native-svg'
 import { useAuth } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import ProfileInsightsChart from '@/components/ProfileInsightsChart'
+import PlayerLevelCard from '@/components/PlayerLevelCard'
+import PerformanceLogSheet from '@/components/PerformanceLogSheet'
+import { Colors, Spacing } from '@/constants/theme'
+
+function EditIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M20 18V20H0V18H20ZM13 0L18 5L7 16H2V11L13 0ZM9.70686 6.12108L4 11.828V14H6.172L11.8789 8.29308L9.70686 6.12108ZM13 2.828L11.1211 4.70686L13.2931 6.87886L15.172 5L13 2.828Z"
+        fill="#B4B4B4"
+      />
+    </Svg>
+  )
+}
+
+function GearIcon() {
+  return (
+    <Svg width={21} height={22} viewBox="0 0 21 22" fill="none">
+      <Path
+        d="M17.5433 11.7686C17.5848 11.4447 17.607 11.1186 17.6099 10.792C17.607 10.4654 17.5848 10.1393 17.5433 9.81543L19.6049 8.16016C19.698 8.08724 19.7616 7.98167 19.7835 7.86366C19.8055 7.74565 19.7843 7.62348 19.7239 7.52051L17.7718 4.04884C17.7153 3.94471 17.6236 3.86538 17.5139 3.82581C17.4043 3.78624 17.2843 3.78915 17.1767 3.834L14.7437 4.83986C14.2374 4.44361 13.6838 4.11543 13.0963 3.8633L12.7297 1.21194C12.7136 1.09461 12.6563 0.987325 12.5687 0.910066C12.4811 0.832806 12.3691 0.79085 12.2536 0.792016H8.3399C8.22437 0.79085 8.11237 0.832806 8.02477 0.910066C7.93717 0.987325 7.87995 1.09461 7.86379 1.21194L7.49717 3.8633C6.90892 4.11385 6.35511 4.44215 5.8498 4.83986L3.40731 3.834C3.29964 3.78915 3.17968 3.78624 3.07005 3.82581C2.96043 3.86538 2.8687 3.94471 2.81216 4.04884L0.860075 7.52051C0.799708 7.62348 0.778473 7.74565 0.800434 7.86366C0.822394 7.98167 0.886007 8.08724 0.979105 8.16016L3.03594 9.81543C2.99462 10.1393 2.97236 10.4654 2.96928 10.792C2.9722 11.1186 2.99446 11.4447 3.03594 11.7686L0.979105 13.4238C0.886007 13.4967 0.822394 13.6023 0.800434 13.7203C0.778473 13.8383 0.799708 13.9605 0.860075 14.0635L2.81216 17.5351C2.8687 17.6393 2.96043 17.7186 3.07005 17.7582C3.17968 17.7977 3.29964 17.75 3.40731 17.75L5.84028 16.7441C6.34654 17.1404 6.90016 17.4686 7.48765 17.7207L7.85426 20.372C7.87043 20.4894 7.92765 20.5967 8.01525 20.6739C8.10285 20.7512 8.21485 20.7931 8.33038 20.792H12.2346C12.3501 20.7931 12.4621 20.7512 12.5497 20.6739C12.6373 20.5967 12.6945 20.4894 12.7107 20.372L13.0773 17.7207C13.6655 17.4701 14.2193 17.1418 14.7247 16.7441L17.1576 17.75C17.2653 17.7948 17.3853 17.7977 17.4949 17.7582C17.6045 17.7186 17.6962 17.6393 17.7528 17.5351L19.7049 14.0635C19.7652 13.9605 19.7865 13.8383 19.7645 13.7203C19.7425 13.6023 19.6789 13.4967 19.5858 13.4238L17.5433 11.7686ZM10.292 14.2978C9.61567 14.2988 8.95426 14.094 8.39146 13.7094C7.82866 13.3247 7.38976 12.7775 7.13029 12.137C6.87081 11.4965 6.80244 10.7914 6.9338 10.111C7.06517 9.43064 7.39038 8.8055 7.86828 8.31471C8.34618 7.82392 8.95529 7.48954 9.61855 7.35387C10.2818 7.2182 10.9694 7.28734 11.5943 7.55254C12.2193 7.81775 12.7535 8.2671 13.1293 8.84374C13.5051 9.42038 13.7058 10.0984 13.7058 10.792C13.7064 11.2522 13.6186 11.7079 13.4473 12.1333C13.276 12.5586 13.0246 12.9451 12.7076 13.2707C12.3905 13.5963 12.014 13.8546 11.5995 14.0309C11.185 14.2071 10.7407 14.2978 10.292 14.2978Z"
+        stroke="#B4B4B4"
+        strokeWidth={1.584}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+const RING_R = 31
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 
 type Role = 'player' | 'scout' | null
 
@@ -17,60 +51,36 @@ interface PlayerData {
   age?: number; current_club?: string; contract_status?: string
   nationality?: string; appearances?: number; goals?: number
   assists?: number; clean_sheets?: number; profile_completion_score?: number
-  bio?: string; is_verified?: boolean; league_level?: string
+  bio?: string; is_verified?: boolean; league_level?: string; skill_level?: string
+  gender?: string; height_cm?: number; weight_kg?: number
+  preferred_foot?: string; secondary_positions?: string[]
 }
 
-interface PerformanceLog {
-  id: string
-  match_date: string
-  entry_type: 'match' | 'training' | 'trial'
-  context: string | null
-  goals: number | null
-  assists: number | null
-  rating: number | null
-  notes: string | null
-}
-
-const TYPE_LABEL: Record<PerformanceLog['entry_type'], string> = {
-  match:    'Match',
-  training: 'Training',
-  trial:    'Trial',
-}
-
-const TYPE_COLOR: Record<PerformanceLog['entry_type'], string> = {
-  match:    '#00FF87',
-  training: '#8AABFF',
-  trial:    '#FFB547',
-}
-
-interface ScoutData {
-  first_name: string; last_name: string; organisation_name?: string
-  scout_type?: string; positions_seeking?: string[]; regions_covered?: string[]
-  league_level?: string; bio?: string; is_verified?: boolean
-  years_experience?: number; subscription_tier?: string
-}
-
-const PLAYER_MENU = [
-  { icon: '✏️', label: 'Edit profile' },
-  { icon: '📹', label: 'Upload highlight reel' },
-  { icon: '📊', label: 'Profile analytics', badge: 'Premium' },
-  { icon: '🔔', label: 'Notification settings' },
-  { icon: '💳', label: 'Boost my profile', badge: 'Paid' },
-]
-
-const SCOUT_MENU = [
-  { icon: '✏️', label: 'Edit profile' },
-  { icon: '📊', label: 'Scout reports', badge: 'Pro' },
-  { icon: '🔔', label: 'Notification settings' },
-]
 
 export default function ProfileScreen() {
   const { userId, signOut } = useAuth()
   const router = useRouter()
   const [role, setRole]   = useState<Role>(null)
-  const [data, setData]   = useState<PlayerData | ScoutData | null>(null)
+  const [data, setData]   = useState<PlayerData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [logs, setLogs]   = useState<PerformanceLog[]>([])
+  const [insightsOpen, setInsightsOpen]       = useState(false)
+  const [yourDetailsOpen, setYourDetailsOpen] = useState(false)
+  const [showreelOpen, setShowreelOpen]       = useState(false)
+  const [perfLogOpen, setPerfLogOpen]         = useState(false)
+  const [logSheetOpen, setLogSheetOpen]       = useState(false)
+  const insightRotate  = useRef(new Animated.Value(0)).current
+  const detailsRotate  = useRef(new Animated.Value(0)).current
+  const showreelRotate = useRef(new Animated.Value(0)).current
+  const perfLogRotate  = useRef(new Animated.Value(0)).current
+  const [totalLogs, setTotalLogs] = useState(0)
+  const [weekLogs,  setWeekLogs]  = useState(0)
+  const [insights, setInsights] = useState<{
+    viewPoints: number[]
+    shortlistPoints: number[]
+    dayLabels: string[]
+    totalViews: number
+    totalShortlists: number
+  } | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -82,20 +92,77 @@ export default function ProfileScreen() {
         setRole('player')
         setData(p)
         setLoading(false)
-        const { data: l } = await supabase
-          .from('performance_logs')
-          .select('id,match_date,entry_type,context,goals,assists,rating,notes')
-          .eq('user_id', userId)
-          .order('match_date', { ascending: false })
-          .limit(5)
-        setLogs(l ?? [])
+
+        // Build Mon–Sun buckets for the current ISO week
+        const today = new Date()
+        const dow = today.getDay() // 0=Sun, 1=Mon … 6=Sat
+        const toMonday = dow === 0 ? -6 : 1 - dow
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + toMonday)
+
+        const days: string[] = []
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday)
+          d.setDate(monday.getDate() + i)
+          days.push(d.toISOString().split('T')[0])
+        }
+        const since = days[0] + 'T00:00:00'
+
+        const [
+          { data: viewRows },
+          { data: shortRows },
+          { count: totalLogCount },
+          { count: weekLogCount },
+        ] = await Promise.all([
+          supabase
+            .from('profile_views')
+            .select('viewed_at')
+            .eq('player_id', userId)
+            .gte('viewed_at', since),
+          supabase
+            .from('watchlist_items')
+            .select('created_at')
+            .eq('player_id', p.id)
+            .gte('created_at', since),
+          supabase
+            .from('performance_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId),
+          supabase
+            .from('performance_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('match_date', since),
+        ])
+
+        setTotalLogs(totalLogCount ?? 0)
+        setWeekLogs(weekLogCount ?? 0)
+
+        // Aggregate into daily buckets
+        const viewMap: Record<string, number>  = {}
+        const shortMap: Record<string, number> = {}
+        days.forEach(d => { viewMap[d] = 0; shortMap[d] = 0 })
+        viewRows?.forEach(r  => { const d = r.viewed_at.split('T')[0];  if (d in viewMap)  viewMap[d]++ })
+        shortRows?.forEach(r => { const d = (r.created_at as string).split('T')[0]; if (d in shortMap) shortMap[d]++ })
+
+        const viewPoints      = days.map(d => viewMap[d])
+        const shortlistPoints = days.map(d => shortMap[d])
+        const dayLabels       = days.map(d => new Date(d).toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3))
+
+        setInsights({
+          viewPoints,
+          shortlistPoints,
+          dayLabels,
+          totalViews:      viewPoints.reduce((a, b)      => a + b, 0),
+          totalShortlists: shortlistPoints.reduce((a, b) => a + b, 0),
+        })
         return
       }
 
       const { data: a } = await supabase
         .from('scout_profiles')
         .select('*').eq('user_id', userId).maybeSingle()
-      if (a) { setRole('scout'); setData(a) }
+      if (a) { setRole('scout'); setData(a as unknown as PlayerData) }
       setLoading(false)
     })()
   }, [userId])
@@ -122,151 +189,326 @@ export default function ProfileScreen() {
   }
 
   const initials = [data.first_name?.[0], data.last_name?.[0]].filter(Boolean).join('')
-  const player   = role === 'player' ? (data as PlayerData) : null
-  const scout    = role === 'scout'  ? (data as ScoutData)  : null
-  const menu     = role === 'player' ? PLAYER_MENU : SCOUT_MENU
-  const score    = player?.profile_completion_score ?? 0
+  const player = role === 'player' ? (data as PlayerData) : null
+  const score  = player?.profile_completion_score ?? 0
 
   return (
     <ScreenBackground>
       <ScreenHeader />
       <ScrollView contentContainerStyle={styles.content}>
-      {/* ── Avatar hero ── */}
-      <View style={styles.hero}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-          {data.is_verified && <View style={styles.verifiedBadge}><Text style={styles.verifiedText}>✓</Text></View>}
-        </View>
-        <Text style={styles.name}>{data.first_name} {data.last_name}</Text>
-
-        {player && (
-          <Text style={styles.heroSub}>
-            {[player.primary_position, player.nationality, player.age ? `${player.age} yrs` : null]
-              .filter(Boolean).join(' · ')}
-          </Text>
-        )}
-        {scout && (
-          <Text style={styles.heroSub}>
-            {scout.organisation_name || (scout.scout_type ?? 'Scout').replace(/_/g, ' ')}
-          </Text>
-        )}
-
-        <View style={styles.rolePill}>
-          <Text style={styles.rolePillText}>
-            {role === 'player' ? '⚽ Player' : '🔍 Scout'}
-          </Text>
-        </View>
+      {/* ── Edit / Settings row ── */}
+      <View style={styles.editRow}>
+        <TouchableOpacity style={styles.editBtn} activeOpacity={0.7}>
+          <Text style={styles.editLabel}>Edit Profile</Text>
+          <EditIcon />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/settings' as any)} activeOpacity={0.7} hitSlop={10}>
+          <GearIcon />
+        </TouchableOpacity>
       </View>
 
-      {/* ── Player stats ── */}
-      {player && (
-        <View style={styles.statsRow}>
-          {[
-            { label: 'Apps',    value: player.appearances ?? 0 },
-            { label: 'Goals',   value: player.goals       ?? 0 },
-            { label: 'Assists', value: player.assists      ?? 0 },
-            { label: 'CS',      value: player.clean_sheets ?? 0 },
-          ].map(s => (
-            <View key={s.label} style={styles.stat}>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
+      {/* ── Avatar hero ── */}
+      <View style={styles.hero}>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          {data.is_verified && (
+            <View style={styles.verifiedBadge}>
+              <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                <Path d="M2.5 7l3 3 6-6" stroke="#000" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
             </View>
-          ))}
-        </View>
-      )}
-
-      {/* ── Recent activity (players only) ── */}
-      {player && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Recent activity</Text>
-          {logs.length === 0 ? (
-            <Text style={styles.emptyLogs}>No activity yet — log your first match or session.</Text>
-          ) : (
-            logs.map(log => {
-              const color = TYPE_COLOR[log.entry_type]
-              const d     = new Date(log.match_date)
-              const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-              return (
-                <View key={log.id} style={styles.logRow}>
-                  <View style={[styles.logTypePill, { borderColor: color }]}>
-                    <Text style={[styles.logTypeText, { color }]}>{TYPE_LABEL[log.entry_type]}</Text>
-                  </View>
-                  <View style={styles.logMid}>
-                    {log.context ? (
-                      <Text style={styles.logContext} numberOfLines={1}>{log.context}</Text>
-                    ) : (
-                      <Text style={styles.logContextMuted}>—</Text>
-                    )}
-                    {log.entry_type === 'match' && (log.goals != null || log.assists != null) && (
-                      <Text style={styles.logStats}>
-                        {log.goals ?? 0}G · {log.assists ?? 0}A
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.logRight}>
-                    {log.rating != null && (
-                      <View style={[styles.ratingBadge, { borderColor: color }]}>
-                        <Text style={[styles.ratingBadgeText, { color }]}>{log.rating}</Text>
-                      </View>
-                    )}
-                    <Text style={styles.logDate}>{dateStr}</Text>
-                  </View>
-                </View>
-              )
-            })
           )}
         </View>
-      )}
+        <Text style={styles.heroFirstName}>{data.first_name}</Text>
+        <Text style={styles.heroLastName}>{data.last_name}</Text>
+      </View>
 
       {/* ── Profile completion (players only) ── */}
       {player && (
         <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionLabel}>Profile completion</Text>
-            <Text style={styles.scoreText}>{score}%</Text>
+          <View style={styles.profileScoreRow}>
+            <View style={styles.ringWrap}>
+              <Svg width={78} height={78}>
+                <G transform="rotate(-90, 39, 39)">
+                  <Circle
+                    cx={39} cy={39} r={RING_R}
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeWidth={8}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={39} cy={39} r={RING_R}
+                    stroke={Colors.brand}
+                    strokeWidth={8}
+                    fill="none"
+                    strokeDasharray={RING_CIRCUMFERENCE}
+                    strokeDashoffset={RING_CIRCUMFERENCE * (1 - score / 100)}
+                    strokeLinecap="round"
+                  />
+                </G>
+              </Svg>
+              <View style={styles.ringLabel}>
+                <Text style={styles.ringScore}>{score}</Text>
+              </View>
+            </View>
+            <View style={styles.scoreTextCol}>
+              <Text style={styles.profileScoreTitle}>Profile Score</Text>
+              <Text style={styles.profileScoreDesc}>
+                Complete your profile to help scouts find you easier
+              </Text>
+            </View>
           </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${score}%` as any }]} />
-          </View>
-          {score < 100 && (
-            <Text style={styles.progressHint}>
-              Add your {[
-                !player.bio && 'bio',
-                !player.primary_position && 'position',
-                !player.nationality && 'nationality',
-              ].filter(Boolean).slice(0, 2).join(', ')} to increase visibility.
-            </Text>
+        </View>
+      )}
+
+      {/* ── Profile Insights (players only) ── */}
+      {player && (
+        <View style={styles.insightBlock}>
+          <TouchableOpacity
+            style={styles.insightHeader}
+            onPress={() => {
+              const toValue = insightsOpen ? 0 : 1
+              Animated.timing(insightRotate, {
+                toValue,
+                duration: 200,
+                useNativeDriver: true,
+              }).start()
+              setInsightsOpen(v => !v)
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.insightTitle}>Profile Insights</Text>
+            <View style={styles.insightDivider} />
+            <Animated.View style={{ transform: [{ rotate: insightRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                <Path
+                  d="M10.5 1V20M1 10.5H20"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </Animated.View>
+          </TouchableOpacity>
+          {insightsOpen && insights && (
+            <View style={styles.insightContent}>
+              <ProfileInsightsChart {...insights} />
+            </View>
           )}
         </View>
       )}
 
-      {/* ── Scout info ── */}
-      {scout && scout.positions_seeking && scout.positions_seeking.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Positions Seeking</Text>
-          <View style={styles.tagRow}>
-            {scout.positions_seeking.map(p => (
-              <View key={p} style={styles.tag}><Text style={styles.tagText}>{p}</Text></View>
-            ))}
-          </View>
+      {/* ── Your Details (players only) ── */}
+      {player && (
+        <View style={styles.insightBlock}>
+          <TouchableOpacity
+            style={styles.insightHeader}
+            onPress={() => {
+              const toValue = yourDetailsOpen ? 0 : 1
+              Animated.timing(detailsRotate, {
+                toValue,
+                duration: 200,
+                useNativeDriver: true,
+              }).start()
+              setYourDetailsOpen(v => !v)
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.insightTitle}>Your Details</Text>
+            <View style={styles.insightDivider} />
+            <Animated.View style={{ transform: [{ rotate: detailsRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                <Path
+                  d="M10.5 1V20M1 10.5H20"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </Animated.View>
+          </TouchableOpacity>
+          {yourDetailsOpen && (
+            <View style={styles.insightContent}>
+              <View style={styles.detailsContentWrap}>
+
+                {/* Age + Nationality */}
+                <View style={styles.detailsCardRow}>
+                  <View style={[styles.detailsCard, { width: 95 }]}>
+                    <Text style={styles.detailsCardLabel}>Age</Text>
+                    <Text style={styles.detailsCardValue}>
+                      {player.age ? `${player.age} Yrs` : '22 Yrs'}
+                    </Text>
+                  </View>
+                  <View style={[styles.detailsCard, { flex: 1 }]}>
+                    <Text style={styles.detailsCardLabel}>Nationality</Text>
+                    <Text style={styles.detailsCardValue} numberOfLines={1}>
+                      {player.nationality?.toUpperCase() ?? 'ENGLAND'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Endorsements */}
+                <View style={[styles.detailsCard, styles.detailsEndorseCard]}>
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <Text style={styles.detailsCardLabel}>Endorsements</Text>
+                    <Text style={styles.detailsCardValue}>0</Text>
+                  </View>
+                  <TouchableOpacity style={styles.endorseBtn} activeOpacity={0.85}>
+                    <Text style={styles.endorseBtnText}>Request Endorsement</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Attribute list */}
+                {(() => {
+                  const positions = [
+                    player.primary_position,
+                    ...(player.secondary_positions ?? []),
+                  ].filter(Boolean) as string[]
+
+                  const attrs = [
+                    { label: 'Gender',         value: player.gender         ?? 'Male'  },
+                    { label: 'Height',         value: player.height_cm      ? `${player.height_cm} cm`  : '171 cm' },
+                    { label: 'Weight',         value: player.weight_kg      ? `${player.weight_kg}kg`   : '72kg'   },
+                    { label: 'Preferred Foot', value: player.preferred_foot ?? 'Both'  },
+                  ]
+
+                  const displayPositions = positions.length > 0 ? positions : ['CB', 'LB', 'RB']
+
+                  return (
+                    <View style={styles.attrWrap}>
+                      <View style={styles.attrInner}>
+                        {attrs.map(a => (
+                          <View key={a.label} style={styles.attrRow}>
+                            <Text style={styles.attrLabel}>{a.label}</Text>
+                            <Text style={styles.attrValue}>{a.value}</Text>
+                          </View>
+                        ))}
+                        <View style={styles.attrRow}>
+                          <Text style={styles.attrLabel}>Positions</Text>
+                          {displayPositions.map(p => (
+                            <Text key={p} style={styles.attrValue}>{p}</Text>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  )
+                })()}
+
+                {/* Player level card */}
+                <PlayerLevelCard
+                  playingLevel={(player.league_level ?? 'Grassroots').replace(/_/g, ' ')}
+                  performanceLevel={player.skill_level ?? 'medium skill level'}
+                />
+
+              </View>
+            </View>
+          )}
         </View>
       )}
 
-      {/* ── Menu ── */}
-      <View style={styles.menu}>
-        {menu.map(item => (
-          <TouchableOpacity key={item.label} style={styles.menuItem}>
-            <Text style={styles.menuIcon}>{item.icon}</Text>
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            {item.badge && (
-              <View style={styles.menuBadge}>
-                <Text style={styles.menuBadgeText}>{item.badge}</Text>
-              </View>
-            )}
-            <Text style={styles.menuChevron}>›</Text>
+      {/* ── Showreel (players only) ── */}
+      {player && (
+        <View style={styles.insightBlock}>
+          <TouchableOpacity
+            style={styles.insightHeader}
+            onPress={() => {
+              const toValue = showreelOpen ? 0 : 1
+              Animated.timing(showreelRotate, {
+                toValue,
+                duration: 200,
+                useNativeDriver: true,
+              }).start()
+              setShowreelOpen(v => !v)
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.insightTitle}>Showreel</Text>
+            <View style={styles.insightDivider} />
+            <Animated.View style={{ transform: [{ rotate: showreelRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </Animated.View>
           </TouchableOpacity>
-        ))}
-      </View>
+
+          {showreelOpen && (
+            <View style={styles.insightContent}>
+              <TouchableOpacity style={styles.videoPlayer} activeOpacity={0.8}>
+                <View style={styles.playBtn}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                    <Path d="M6 4l14 8-14 8V4z" fill="#000000" />
+                  </Svg>
+                </View>
+                <Text style={styles.videoHint}>Tap to upload</Text>
+                <Text style={styles.videoHintSub}>Max 30 secs.</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Performance Log (players only) ── */}
+      {player && (
+        <View style={styles.insightBlock}>
+          <TouchableOpacity
+            style={styles.insightHeader}
+            onPress={() => {
+              const toValue = perfLogOpen ? 0 : 1
+              Animated.timing(perfLogRotate, {
+                toValue,
+                duration: 200,
+                useNativeDriver: true,
+              }).start()
+              setPerfLogOpen(v => !v)
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.insightTitle}>Performance Log</Text>
+            <View style={styles.insightDivider} />
+            <Animated.View style={{ transform: [{ rotate: perfLogRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </Animated.View>
+          </TouchableOpacity>
+
+          {perfLogOpen && (
+            <View style={styles.insightContent}>
+              <Text style={styles.perfDesc}>
+                Logging your activity gives a strong indication that you're; playing regularly, developing deliberately, and serious about being discovered. Scouts notice players who show up consistently.
+              </Text>
+
+              {/* Stat chips */}
+              <View style={styles.perfChipsRow}>
+                <View style={[styles.perfChip, { width: 126 }]}>
+                  <Text style={styles.perfChipNumber}>{totalLogs}</Text>
+                  <Text style={styles.perfChipLabel}>Performance{'\n'}Log Entries</Text>
+                </View>
+                <View style={[styles.perfChip, { flex: 1 }]}>
+                  <Text style={styles.perfChipNumber}>{weekLogs}</Text>
+                  <Text style={styles.perfChipLabel}>Added{'\n'}This Week</Text>
+                </View>
+                <View style={[styles.perfChip, styles.perfChipFire, { width: 84 }]}>
+                  <Text style={styles.perfChipEmoji}>🔥</Text>
+                  <Text style={styles.perfChipLabel}>Keep{'\n'}It Up!</Text>
+                </View>
+              </View>
+
+              {/* CTA buttons */}
+              <View style={styles.perfCtaRow}>
+                <TouchableOpacity style={[styles.perfCtaBtn, styles.perfCtaOutline]} activeOpacity={0.8} onPress={() => router.push('/performance-log' as any)}>
+                  <Text style={[styles.perfCtaText, { color: '#ffffff' }]}>View Entries</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.perfCtaBtn, styles.perfCtaSolid]} activeOpacity={0.8} onPress={() => setLogSheetOpen(true)}>
+                  <Text style={[styles.perfCtaText, { color: '#000000' }]}>+ Add Entry</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
 
       <TouchableOpacity
         style={styles.signOut}
@@ -275,6 +517,15 @@ export default function ProfileScreen() {
         <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
       </ScrollView>
+      <PerformanceLogSheet
+        visible={logSheetOpen}
+        onClose={() => setLogSheetOpen(false)}
+        onSaved={() => {
+          setLogSheetOpen(false)
+          setTotalLogs(n => n + 1)
+          setWeekLogs(n => n + 1)
+        }}
+      />
     </ScreenBackground>
   )
 }
@@ -289,104 +540,321 @@ const styles = StyleSheet.create({
   signOutEmpty: { marginTop: 8, paddingVertical: 10, paddingHorizontal: 24 },
   signOutEmptyText: { color: Colors.error, fontSize: 14, fontWeight: '600' },
 
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b4b4b4',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+
   hero: {
-    alignItems: 'center', paddingTop: 30, paddingBottom: Spacing.xl,
-    borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 8,
+    alignItems: 'center',
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: 4,
+  },
+  avatarWrap: {
+    width: 100,
+    height: 100,
+    marginBottom: Spacing.md,
   },
   avatar: {
-    width: 84, height: 84, borderRadius: 42,
+    width: 100, height: 100, borderRadius: 50,
     backgroundColor: 'rgba(0,255,135,0.1)', borderWidth: 2,
     borderColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 4,
   },
-  avatarText: { fontSize: 30, fontWeight: '700', color: Colors.brand },
+  avatarText: { fontSize: 34, fontWeight: '700', color: Colors.brand },
   verifiedBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 22, height: 22, borderRadius: 11,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
   },
-  verifiedText: { fontSize: 11, fontWeight: '700', color: Colors.background },
-  name:    { fontSize: 22, fontWeight: '700', color: Colors.text },
-  heroSub: { fontSize: 14, color: Colors.textSecondary },
-  rolePill: {
-    backgroundColor: 'rgba(0,255,135,0.08)', borderWidth: 1,
-    borderColor: 'rgba(0,255,135,0.2)', borderRadius: Radius.full,
-    paddingHorizontal: 14, paddingVertical: 4, marginTop: 4,
+  heroFirstName: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 28,
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  rolePillText: { color: Colors.brand, fontSize: 12, fontWeight: '600' },
+  heroLastName: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 53,
+    color: Colors.text,
+    textTransform: 'uppercase',
+    lineHeight: 65,
+  },
 
-  statsRow: {
-    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border,
+  insightBlock: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  stat: {
-    flex: 1, paddingVertical: Spacing.md, alignItems: 'center',
-    borderRightWidth: 1, borderRightColor: Colors.border,
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
-  statValue: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  statLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+  insightTitle: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 24,
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.48,
+  },
+  insightDivider: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#fff',
+  },
+  insightContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+
+  // ── Your Details content ─────────────────────────────────────────────────
+  detailsContentWrap: {
+    gap: Spacing.md,
+  },
+  detailsCardRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  detailsCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 15,
+    gap: 8,
+    height: 82,
+    justifyContent: 'space-between',
+  },
+  detailsCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    opacity: 0.5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  detailsCardValue: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 22,
+    color: '#ffffff',
+    textTransform: 'uppercase',
+  },
+  detailsEndorseCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 82,
+  },
+  endorseBtn: {
+    height: 32,
+    backgroundColor: '#ffffff',
+    borderRadius: 100,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endorseBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#000000',
+    textTransform: 'uppercase',
+    letterSpacing: 0.22,
+  },
+  attrWrap: {
+    paddingVertical: Spacing.md,
+  },
+  attrInner: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.brand,
+    paddingLeft: 20,
+    gap: 8,
+  },
+  attrRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  attrLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+  },
+  attrValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.brand,
+    textTransform: 'uppercase',
+  },
+
+  // ── Showreel ──────────────────────────────────────────────────────────────
+  videoPlayer: {
+    height: 175,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    overflow: 'hidden',
+  },
+  playBtn: {
+    width: 67,
+    height: 67,
+    borderRadius: 34,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
+  videoHint: {
+    fontSize: 12,
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  videoHintSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+  },
 
   section: {
     padding: Spacing.lg, gap: 10,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionLabel: {
     color: Colors.textSecondary, fontSize: 11, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 1,
   },
-  scoreText: { color: Colors.brand, fontSize: 13, fontWeight: '700' },
-  progressTrack: {
-    height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2,
+  profileScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
   },
-  progressFill: { height: 4, backgroundColor: Colors.brand, borderRadius: 2 },
-  progressHint: { color: Colors.textMuted, fontSize: 12, lineHeight: 18 },
+  ringWrap: {
+    width: 78,
+    height: 78,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringLabel: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringScore: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 22,
+    color: '#ffffff',
+  },
+  scoreTextCol: {
+    flex: 1,
+    gap: 10,
+  },
+  profileScoreTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  profileScoreDesc: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: 18,
+  },
 
-  emptyLogs: { color: Colors.textMuted, fontSize: 13, lineHeight: 20 },
-  logRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: Spacing.sm + 2,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  // ── Performance Log ──────────────────────────────────────────────────────
+  perfDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: Spacing.md,
   },
-  logTypePill: {
-    borderWidth: 1, borderRadius: Radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
-    minWidth: 68, alignItems: 'center',
+  perfChipsRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  logTypeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
-  logMid:      { flex: 1, gap: 2 },
-  logContext:  { fontSize: 13, color: Colors.text, fontWeight: '500' },
-  logContextMuted: { fontSize: 13, color: Colors.textMuted },
-  logStats:    { fontSize: 11, color: Colors.textSecondary },
-  logRight:    { alignItems: 'flex-end', gap: 4 },
-  ratingBadge: {
-    borderWidth: 1.5, borderRadius: Radius.sm,
-    width: 28, height: 28, alignItems: 'center', justifyContent: 'center',
+  perfChip: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 14,
+    justifyContent: 'space-between',
+    minHeight: 82,
+    gap: 6,
   },
-  ratingBadgeText: { fontSize: 12, fontWeight: '800' },
-  logDate:     { fontSize: 11, color: Colors.textMuted },
-
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: {
-    backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: Radius.sm,
-    paddingHorizontal: 10, paddingVertical: 4,
+  perfChipFire: {
+    backgroundColor: '#260b0b',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tagText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '500' },
-
-  menu: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 16, borderBottomWidth: 1,
-    borderBottomColor: Colors.border, gap: Spacing.md,
+  perfChipNumber: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 28,
+    color: '#ffffff',
   },
-  menuIcon:        { fontSize: 18 },
-  menuLabel:       { flex: 1, color: Colors.text, fontSize: 15 },
-  menuBadge:       { backgroundColor: 'rgba(0,255,135,0.1)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  menuBadgeText:   { color: Colors.brand, fontSize: 11, fontWeight: '600' },
-  menuChevron:     { color: Colors.textMuted, fontSize: 20 },
+  perfChipEmoji: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  perfChipLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    lineHeight: 14,
+  },
+  perfCtaRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  perfCtaBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  perfCtaOutline: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+  },
+  perfCtaSolid: {
+    backgroundColor: '#ffffff',
+  },
+  perfCtaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
   signOut: {
     margin: Spacing.lg, marginTop: Spacing.xl, height: 52,
-    borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 16, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
   signOutText: { color: Colors.error, fontSize: 15, fontWeight: '600' },

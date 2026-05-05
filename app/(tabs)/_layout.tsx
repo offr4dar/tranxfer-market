@@ -5,11 +5,12 @@ import { useAuth } from '@clerk/clerk-expo'
 import * as Updates from 'expo-updates'
 import { supabase } from '@/lib/supabase'
 import {
-  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon, SkillFeedIcon,
+  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
+import PersistentFAB from '@/components/PersistentFAB'
 
 const showRoleSwitcher = __DEV__ || Updates.channel === 'preview'
 
@@ -92,15 +93,6 @@ function TabsContent() {
         }}
       />
 
-      {/* ── Player-only tabs ──────────────────────────────────────────────── */}
-      <Tabs.Screen
-        name="skillfeed"
-        options={{
-          title: 'Skill Feed',
-          href: isPlayer ? undefined : null,
-          tabBarIcon: ({ color, size }) => <SkillFeedIcon color={color} size={size} />,
-        }}
-      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -146,6 +138,7 @@ export default function TabsLayout() {
   return (
     <DevRoleProvider>
       <TabsContent />
+      <PersistentFAB />
       {showRoleSwitcher && <DevRoleSwitcher />}
     </DevRoleProvider>
   )

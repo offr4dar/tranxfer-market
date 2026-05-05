@@ -6,7 +6,7 @@ import {
 import { useAuth } from '@clerk/clerk-expo'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { Colors, Spacing } from '@/constants/theme'
 
 interface Message {
   id: string
@@ -33,11 +33,13 @@ export default function ConversationScreen() {
   const listRef = useRef<FlatList>(null)
 
   const fetchMessages = useCallback(async () => {
-    const { data } = await supabase
+    if (!id || !userId) return
+    const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
+    if (error) console.error('fetchMessages:', error.message)
     setMessages((data as Message[]) ?? [])
     setLoading(false)
 
@@ -82,10 +84,13 @@ export default function ConversationScreen() {
     })
 
     if (!error) {
-      await supabase
+      const { error: updateErr } = await supabase
         .from('conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', id)
+      if (updateErr) console.error('update last_message_at:', updateErr.message)
+    } else {
+      console.error('send message:', error.message)
     }
     setSending(false)
   }

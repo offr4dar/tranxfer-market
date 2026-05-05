@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Animated,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@clerk/clerk-expo'
@@ -10,29 +11,31 @@ import { Colors, Spacing, Radius } from '@/constants/theme'
 
 type EntryType = 'match' | 'training' | 'trial'
 
+const TABS: { key: EntryType; label: string }[] = [
+  { key: 'match',    label: 'MATCH' },
+  { key: 'training', label: 'TRAINING' },
+  { key: 'trial',    label: 'TRIAL' },
+]
+
 const ENTRY_CONFIG: Record<EntryType, {
-  label: string
   contextLabel: string
   contextPlaceholder: string
   showStats: boolean
   notesPlaceholder: string
 }> = {
   match: {
-    label: 'Match',
     contextLabel: 'Opponent',
     contextPlaceholder: 'Which team did you play?',
     showStats: true,
     notesPlaceholder: "Tell us more — what competition was it, what was the result, how long did you play, and any standout moments? The more detail, the better your profile looks to scouts.",
   },
   training: {
-    label: 'Training',
     contextLabel: 'Session focus',
     contextPlaceholder: 'What did you train today?',
     showStats: false,
     notesPlaceholder: "Describe the session — was it team or individual? What did you work on? Any drills, improvements, or breakthroughs worth noting?",
   },
   trial: {
-    label: 'Trial',
     contextLabel: 'Club / Academy',
     contextPlaceholder: 'Which club or academy were you trialling for?',
     showStats: false,
@@ -40,7 +43,6 @@ const ENTRY_CONFIG: Record<EntryType, {
   },
 }
 
-const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 interface Props {
   visible: boolean
@@ -56,10 +58,44 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
   const [context, setContext]     = useState('')
   const [goals, setGoals]         = useState('')
   const [assists, setAssists]     = useState('')
-  const [rating, setRating]       = useState<number | null>(null)
   const [notes, setNotes]         = useState('')
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState<string | null>(null)
+
+  // Sheet open/close animation
+  const [isShown, setIsShown]       = useState(false)
+  const sheetY         = useRef(new Animated.Value(700)).current
+  const overlayOpacity = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    if (visible) {
+      setIsShown(true)
+      sheetY.setValue(700)
+      overlayOpacity.setValue(0)
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+        Animated.timing(sheetY,         { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start()
+    } else {
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(sheetY,         { toValue: 700, duration: 240, useNativeDriver: true }),
+      ]).start(() => setIsShown(false))
+    }
+  }, [visible])
+
+  // Animated sliding pill for tab selector
+  const slideAnim = useRef(new Animated.Value(0)).current
+  const [tabWidth, setTabWidth] = useState(0)
+
+  useEffect(() => {
+    const index = TABS.findIndex(t => t.key === entryType)
+    Animated.timing(slideAnim, {
+      toValue: index * tabWidth,
+      duration: 200,
+      useNativeDriver: true,
+    }).start()
+  }, [entryType, tabWidth])
 
   const config = ENTRY_CONFIG[entryType]
 
@@ -68,7 +104,6 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
     setContext('')
     setGoals('')
     setAssists('')
-    setRating(null)
     setNotes('')
     setError(null)
   }
@@ -78,7 +113,12 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
     onClose()
   }
 
-  function handleTypeChange(type: EntryType) {
+  function handleTypeChange(type: EntryType, index: number) {
+    Animated.timing(slideAnim, {
+      toValue: index * tabWidth,
+      duration: 200,
+      useNativeDriver: true,
+    }).start()
     setEntryType(type)
     setContext('')
     setGoals('')
@@ -86,7 +126,6 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
   }
 
   async function handleSave() {
-    if (!rating) { setError('Please give yourself a rating.'); return }
     if (!userId) return
 
     setSaving(true)
@@ -99,7 +138,6 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
       context:    context.trim() || null,
       goals:      entryType === 'match' && goals ? parseInt(goals, 10) : null,
       assists:    entryType === 'match' && assists ? parseInt(assists, 10) : null,
-      rating,
       notes:      notes.trim() || null,
     })
 
@@ -115,50 +153,64 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+    <Modal visible={isShown} animationType="none" transparent onRequestClose={handleClose}>
+      {/* Backdrop — fades independently */}
+      <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]} />
+
+      {/* Sheet positioner */}
+      <View style={styles.positioner} pointerEvents="box-none">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.kav}
         >
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.md, transform: [{ translateY: sheetY }] }]}>
 
             {/* Handle */}
             <View style={styles.handle} />
 
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Log activity</Text>
+              <Text style={styles.title}>Log Entry</Text>
               <TouchableOpacity onPress={handleClose} hitSlop={12}>
                 <Text style={styles.cancel}>Cancel</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
 
-              {/* Entry type selector */}
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.typeRow}>
-                {(Object.keys(ENTRY_CONFIG) as EntryType[]).map(type => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[styles.typePill, entryType === type && styles.typePillActive]}
-                    onPress={() => handleTypeChange(type)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.typePillText, entryType === type && styles.typePillTextActive]}>
-                      {ENTRY_CONFIG[type].label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              {/* Entry type — animated sliding tab */}
+              <Text style={styles.sectionLabel}>Type</Text>
+              <View style={styles.tabContainer}>
+                <View
+                  style={styles.tabRow}
+                  onLayout={e => setTabWidth(e.nativeEvent.layout.width / TABS.length)}
+                >
+                  {tabWidth > 0 && (
+                    <Animated.View
+                      style={[styles.tabSlider, { width: tabWidth, transform: [{ translateX: slideAnim }] }]}
+                    />
+                  )}
+                  {TABS.map((tab, index) => (
+                    <TouchableOpacity
+                      key={tab.key}
+                      style={styles.tab}
+                      onPress={() => handleTypeChange(tab.key, index)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.tabLabel, entryType === tab.key && styles.tabLabelActive]}>
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               {/* Contextual input */}
-              <Text style={styles.label}>{config.contextLabel}</Text>
+              <Text style={styles.fieldLabel}>{config.contextLabel}</Text>
               <TextInput
                 style={styles.input}
                 placeholder={config.contextPlaceholder}
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor="#909090"
                 value={context}
                 onChangeText={setContext}
                 returnKeyType="next"
@@ -168,11 +220,11 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
               {config.showStats && (
                 <View style={styles.statsRow}>
                   <View style={styles.statField}>
-                    <Text style={styles.label}>Goals</Text>
+                    <Text style={styles.fieldLabel}>Goals</Text>
                     <TextInput
                       style={[styles.input, styles.statInput]}
                       placeholder="0"
-                      placeholderTextColor={Colors.textMuted}
+                      placeholderTextColor="#909090"
                       keyboardType="number-pad"
                       value={goals}
                       onChangeText={v => setGoals(v.replace(/[^0-9]/g, ''))}
@@ -180,11 +232,11 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
                     />
                   </View>
                   <View style={styles.statField}>
-                    <Text style={styles.label}>Assists</Text>
+                    <Text style={styles.fieldLabel}>Assists</Text>
                     <TextInput
                       style={[styles.input, styles.statInput]}
                       placeholder="0"
-                      placeholderTextColor={Colors.textMuted}
+                      placeholderTextColor="#909090"
                       keyboardType="number-pad"
                       value={assists}
                       onChangeText={v => setAssists(v.replace(/[^0-9]/g, ''))}
@@ -194,52 +246,34 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
                 </View>
               )}
 
-              {/* Rating */}
-              <Text style={styles.label}>Your rating</Text>
-              <View style={styles.ratingRow}>
-                {RATINGS.map(n => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.ratingBtn, rating === n && styles.ratingBtnActive]}
-                    onPress={() => setRating(n)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.ratingText, rating === n && styles.ratingTextActive]}>
-                      {n}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
               {/* Notes */}
-              <Text style={styles.label}>Notes</Text>
+              <Text style={styles.fieldLabel}>Notes</Text>
               <TextInput
                 style={[styles.input, styles.notesInput]}
                 placeholder={config.notesPlaceholder}
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor="#909090"
                 value={notes}
                 onChangeText={setNotes}
                 multiline
                 textAlignVertical="top"
               />
 
-              {error && <Text style={styles.error}>{error}</Text>}
-
-              {/* Save */}
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleSave}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                {saving
-                  ? <ActivityIndicator color={Colors.background} />
-                  : <Text style={styles.saveBtnText}>Save</Text>
-                }
-              </TouchableOpacity>
-
             </ScrollView>
-          </View>
+
+            {/* Save — always visible, pinned outside scroll */}
+            {error && <Text style={styles.error}>{error}</Text>}
+            <TouchableOpacity
+              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              {saving
+                ? <ActivityIndicator color="#000" />
+                : <Text style={styles.saveBtnText}>SAVE</Text>
+              }
+            </TouchableOpacity>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -247,18 +281,21 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  positioner: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   kav: {
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     maxHeight: '90%',
@@ -267,7 +304,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignSelf: 'center',
     marginBottom: Spacing.md,
   },
@@ -278,57 +315,79 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Anton_400Regular',
+    fontSize: 20,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
     color: Colors.text,
-    letterSpacing: 0.2,
   },
   cancel: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.textSecondary,
+    letterSpacing: 0.32,
   },
-  label: {
+
+  // Section / field labels
+  sectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    color: Colors.textMuted,
     marginBottom: Spacing.sm,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    color: '#fff',
+    letterSpacing: 0.32,
     marginTop: Spacing.md,
+    marginBottom: 5,
   },
-  typeRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  typePill: {
-    flex: 1,
-    paddingVertical: Spacing.sm + 2,
+
+  // Animated tab toggle
+  tabContainer: {
+    borderWidth: 1,
+    borderColor: '#284135',
     borderRadius: Radius.full,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    padding: 4,
+  },
+  tabRow: {
+    flexDirection: 'row',
+  },
+  tabSlider: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.brand,
+  },
+  tab: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     alignItems: 'center',
+    zIndex: 1,
   },
-  typePillActive: {
-    borderColor: Colors.brand,
-    backgroundColor: 'rgba(0,255,135,0.08)',
-  },
-  typePillText: {
-    fontSize: 13,
-    fontWeight: '600',
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     color: Colors.textSecondary,
   },
-  typePillTextActive: {
-    color: Colors.brand,
+  tabLabelActive: {
+    color: '#000000',
   },
+
+  // Inputs
   input: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: Radius.md,
+    height: 59,
+    backgroundColor: 'rgba(0,0,0,0.31)',
     borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    fontSize: 14,
-    color: Colors.text,
+    borderColor: '#4f4f4f',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#fff',
   },
   statsRow: {
     flexDirection: 'row',
@@ -339,60 +398,74 @@ const styles = StyleSheet.create({
   },
   statInput: {
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  ratingBtn: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ratingBtnActive: {
-    borderColor: Colors.brand,
-    backgroundColor: 'rgba(0,255,135,0.08)',
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  ratingTextActive: {
-    color: Colors.brand,
-    fontWeight: '800',
+    letterSpacing: 2,
   },
   notesInput: {
     height: 110,
-    paddingTop: Spacing.sm + 2,
+    paddingTop: 16,
+    textAlignVertical: 'top',
   },
+
+  // Rating chips
+  ratingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.11)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    minWidth: 42,
+    alignItems: 'center',
+  },
+  chipActive: {
+    borderColor: '#dedede',
+  },
+  chipText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.32,
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+
   error: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.error,
     marginTop: Spacing.sm,
     textAlign: 'center',
+    lineHeight: 20,
   },
+
+  // Save button
   saveBtn: {
+    height: 57,
     backgroundColor: Colors.brand,
-    borderRadius: Radius.full,
-    paddingVertical: Spacing.md,
+    borderRadius: 100,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
   },
   saveBtnDisabled: {
     opacity: 0.5,
   },
+  scrollContent: {
+    paddingBottom: Spacing.md,
+  },
   saveBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.background,
-    letterSpacing: 0.3,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: 0.28,
+    textTransform: 'uppercase',
   },
 })
