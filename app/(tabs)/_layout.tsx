@@ -148,17 +148,26 @@ function TabsContent() {
 // ─── Root layout ──────────────────────────────────────────────────────────────
 export default function TabsLayout() {
   const { user, isLoaded } = useUser()
+  const [isAdmin, setIsAdmin] = useState(false)
 
-  // Force a fresh fetch of Clerk user data on mount so that publicMetadata
-  // updated in the Clerk dashboard (e.g. role: 'admin') is always reflected,
-  // even if the session was cached before the metadata was added.
+  // Force-reload the Clerk user on mount so publicMetadata set in the Clerk
+  // dashboard (e.g. { role: 'admin' }) is always fresh — even if the local
+  // session was cached before the metadata was added. We store the result in
+  // state so the component re-renders once the reload completes.
   useEffect(() => {
-    if (isLoaded && user) {
-      user.reload().catch(() => {})
-    }
+    if (!isLoaded || !user) return
+    // Check cached value immediately
+    const cached = (user.publicMetadata as { role?: string })?.role === 'admin'
+    if (cached) { setIsAdmin(true); return }
+    // Then fetch fresh data from Clerk servers
+    user.reload()
+      .then(() => {
+        const fresh = (user.publicMetadata as { role?: string })?.role === 'admin'
+        setIsAdmin(fresh)
+      })
+      .catch(() => {})
   }, [isLoaded])
 
-  const isAdmin = (user?.publicMetadata as { role?: string })?.role === 'admin'
   const showRoleSwitcher = __DEV__ || Updates.channel === 'preview' || isAdmin
 
   return (
