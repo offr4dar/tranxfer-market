@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
-import { Tabs } from 'expo-router'
-import { useAuth } from '@clerk/clerk-expo'
+import { Tabs, usePathname, useRouter } from 'expo-router'
+import { useAuth, useUser } from '@clerk/clerk-expo'
 import * as Updates from 'expo-updates'
 import { supabase } from '@/lib/supabase'
 import {
@@ -12,7 +12,8 @@ import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import PersistentFAB from '@/components/PersistentFAB'
 
-const showRoleSwitcher = __DEV__ || Updates.channel === 'preview'
+// showRoleSwitcher is evaluated per-render inside TabsLayout
+// so it can read the signed-in user's Clerk publicMetadata.
 
 // ─── Unread badge overlay ─────────────────────────────────────────────────────
 function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
@@ -62,6 +63,15 @@ function TabsContent() {
     const timer = setInterval(fetchCounts, 30000)
     return () => clearInterval(timer)
   }, [userId])
+
+  // Redirect if player tries to access scout tabs
+  const router = useRouter()
+  const pathname = usePathname()
+  useEffect(() => {
+    if (isPlayer && (pathname === '/feed' || pathname === '/shortlist' || pathname === '/search')) {
+      router.replace('/profile')
+    }
+  }, [isPlayer, pathname])
 
   return (
     <Tabs
@@ -136,6 +146,10 @@ function TabsContent() {
 
 // ─── Root layout ──────────────────────────────────────────────────────────────
 export default function TabsLayout() {
+  const { user } = useUser()
+  const isAdmin = (user?.publicMetadata as { role?: string })?.role === 'admin'
+  const showRoleSwitcher = __DEV__ || Updates.channel === 'preview' || isAdmin
+
   return (
     <DevRoleProvider>
       <TabsContent />

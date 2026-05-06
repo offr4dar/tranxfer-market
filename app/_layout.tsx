@@ -102,6 +102,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="edit-profile" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="player/[id]" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
       </View>
     </ClerkProvider>

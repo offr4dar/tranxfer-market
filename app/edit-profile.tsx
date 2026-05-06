@@ -11,6 +11,7 @@ import Svg, { Path } from 'react-native-svg'
 import ScreenBackground from '@/components/ScreenBackground'
 import { supabase } from '@/lib/supabase'
 import { Colors, Spacing } from '@/constants/theme'
+import { useDevRole } from '@/lib/devRole'
 
 // ─── Picker options ───────────────────────────────────────────────────────────
 
@@ -40,6 +41,8 @@ const PERFORMANCE_LEVELS = [
   'Good',
   'Excellent',
 ]
+
+const GENDER_OPTIONS = ['Male', 'Female']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,6 +170,9 @@ interface FormState {
   firstName: string
   lastName: string
   dob: string
+  height: string
+  weight: string
+  gender: string
   nationality: string
   playingLevel: string
   performanceLevel: string
@@ -176,9 +182,12 @@ export default function EditProfileScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { userId } = useAuth()
+  const { devRole } = useDevRole()
+  const isPlayer = devRole === 'player'
 
   const [form, setForm] = useState<FormState>({
     firstName: '', lastName: '', dob: '',
+    height: '', weight: '', gender: '',
     nationality: '', playingLevel: '', performanceLevel: '',
   })
   const [loading, setLoading]   = useState(true)
@@ -197,30 +206,44 @@ export default function EditProfileScreen() {
   useEffect(() => {
     if (!userId) return
     ;(async () => {
+      const table = isPlayer ? 'player_profiles' : 'scout_profiles'
       const { data } = await supabase
-        .from('player_profiles')
-        .select('first_name,last_name,age,nationality,league_level,skill_level,primary_position,profile_photo_url,highlight_reel_url')
+        .from(table)
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle()
 
       if (data) {
-        setForm({
-          firstName:        data.first_name   ?? '',
-          lastName:         data.last_name    ?? '',
-          dob:              data.age          ? `${data.age}` : '',
-          nationality:      data.nationality  ?? '',
-          playingLevel:     data.league_level ?? '',
-          performanceLevel: data.skill_level  ?? '',
-        })
-        immutableRef.current = {
-          primaryPosition: data.primary_position   ?? '',
-          photoUrl:        data.profile_photo_url  ?? '',
-          reelUrl:         data.highlight_reel_url ?? '',
+        if (isPlayer) {
+          setForm({
+            firstName:        data.first_name   ?? '',
+            lastName:         data.last_name    ?? '',
+            dob:              data.age          ? `${data.age}` : '',
+            height:           data.height_cm    ? `${data.height_cm}` : '',
+            weight:           data.weight_kg    ? `${data.weight_kg}` : '',
+            gender:           data.gender       ? (data.gender.charAt(0).toUpperCase() + data.gender.slice(1)) : '',
+            nationality:      data.nationality  ?? '',
+            playingLevel:     data.league_level ?? '',
+            performanceLevel: data.skill_level  ?? '',
+          })
+          immutableRef.current = {
+            primaryPosition: data.primary_position   ?? '',
+            photoUrl:        data.profile_photo_url  ?? '',
+            reelUrl:         data.highlight_reel_url ?? '',
+          }
+        } else {
+          // Scout profile fields
+          setForm(prev => ({
+            ...prev,
+            firstName:   data.first_name   ?? '',
+            lastName:    data.last_name    ?? '',
+            nationality: data.nationality  ?? '',
+          }))
         }
       }
       setLoading(false)
     })()
-  }, [userId])
+  }, [userId, isPlayer])
 
   function set(field: keyof FormState, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -243,33 +266,48 @@ export default function EditProfileScreen() {
     setSaving(true)
     setError(null)
 
-    const age = ageFromDob(form.dob) ?? (parseInt(form.dob, 10) || null)
-    const { primaryPosition, photoUrl, reelUrl } = immutableRef.current
+    const table = isPlayer ? 'player_profiles' : 'scout_profiles'
+    
+    let updates: any = {
+      first_name:  form.firstName.trim() || undefined,
+      last_name:   form.lastName.trim()  || undefined,
+      nationality: form.nationality      || undefined,
+      updated_at:  new Date().toISOString(),
+    }
 
-    const score = calcCompletionScore({
-      firstName:        form.firstName.trim(),
-      lastName:         form.lastName.trim(),
-      age,
-      nationality:      form.nationality,
-      primaryPosition,
-      playingLevel:     form.playingLevel,
-      performanceLevel: form.performanceLevel,
-      photoUrl,
-      reelUrl,
-    })
-
-    const { error: dbError } = await supabase
-      .from('player_profiles')
-      .update({
-        first_name:               form.firstName.trim() || undefined,
-        last_name:                form.lastName.trim()  || undefined,
-        age:                      age                   ?? undefined,
-        nationality:              form.nationality      || undefined,
+    if (isPlayer) {
+      const age = ageFromDob(form.dob) ?? (parseInt(form.dob, 10) || null)
+      const { primaryPosition, photoUrl, reelUrl } = immutableRef.current
+      const score = calcCompletionScore({
+        firstName:        form.firstName.trim(),
+        lastName:         form.lastName.trim(),
+        age,
+        nationality:      form.nationality,
+        primaryPosition,
+        playingLevel:     form.playingLevel,
+        performanceLevel: form.performanceLevel,
+        photoUrl,
+        reelUrl,
+      })
+      const heightCm  = form.height.trim()  ? parseInt(form.height.trim(), 10)  : null
+      const weightKg  = form.weight.trim()  ? parseInt(form.weight.trim(), 10)  : null
+      const genderVal = form.gender         ? (form.gender.toLowerCase() as 'male' | 'female') : null
+      
+      updates = {
+        ...updates,
+        age:                      age       ?? undefined,
+        height_cm:                heightCm  ?? undefined,
+        weight_kg:                weightKg  ?? undefined,
+        gender:                   genderVal ?? undefined,
         league_level:             form.playingLevel     || undefined,
         skill_level:              form.performanceLevel || undefined,
         profile_completion_score: score,
-        updated_at:               new Date().toISOString(),
-      })
+      }
+    }
+
+    const { error: dbError } = await supabase
+      .from(table)
+      .update(updates)
       .eq('user_id', userId)
 
     setSaving(false)
@@ -362,16 +400,56 @@ export default function EditProfileScreen() {
         />
 
         {/* Date of birth */}
-        <FieldLabel label="Date of birth" />
-        <TextInput
-          style={[styles.input, styles.inputText]}
-          value={form.dob}
-          onChangeText={v => set('dob', v)}
-          placeholder="DD/MM/YYYY"
-          placeholderTextColor="#909090"
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
-        />
+        {isPlayer && (
+          <>
+            <FieldLabel label="Date of birth" />
+            <TextInput
+              style={[styles.input, styles.inputText]}
+              value={form.dob}
+              onChangeText={v => set('dob', v)}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor="#909090"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+            />
+
+            {/* Height & Weight */}
+            <View style={styles.row}>
+              <View style={styles.rowField}>
+                <FieldLabel label="Height (cm)" />
+                <TextInput
+                  style={[styles.input, styles.inputText]}
+                  value={form.height}
+                  onChangeText={v => set('height', v.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 178"
+                  placeholderTextColor="#909090"
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+              </View>
+              <View style={styles.rowField}>
+                <FieldLabel label="Weight (kg)" />
+                <TextInput
+                  style={[styles.input, styles.inputText]}
+                  value={form.weight}
+                  onChangeText={v => set('weight', v.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 75"
+                  placeholderTextColor="#909090"
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+              </View>
+            </View>
+
+            {/* Gender */}
+            <FieldLabel label="Gender" />
+            <SelectRow
+              value={form.gender}
+              placeholder="Select gender"
+              onPress={() => openPicker('Gender', GENDER_OPTIONS, 'gender')}
+            />
+          </>
+        )}
 
         {/* Nationality */}
         <FieldLabel label="Nationality" />
@@ -381,42 +459,46 @@ export default function EditProfileScreen() {
           onPress={() => openPicker('Nationality', NATIONALITIES, 'nationality')}
         />
 
-        {/* Playing level */}
-        <FieldLabel label="Playing level" />
-        <SelectRow
-          value={form.playingLevel}
-          placeholder="Select playing level"
-          onPress={() => openPicker('Playing level', PLAYING_LEVELS, 'playingLevel')}
-        />
+        {isPlayer && (
+          <>
+            {/* Playing level */}
+            <FieldLabel label="Playing level" />
+            <SelectRow
+              value={form.playingLevel}
+              placeholder="Select playing level"
+              onPress={() => openPicker('Playing level', PLAYING_LEVELS, 'playingLevel')}
+            />
 
-        {/* Performance level */}
-        <FieldLabel
-          label="Performance level"
-          hint="How would you describe your performance/ability on the field?"
-        />
-        <SelectRow
-          value={form.performanceLevel}
-          placeholder="Select performance level"
-          onPress={() => openPicker('Performance level', PERFORMANCE_LEVELS, 'performanceLevel')}
-        />
+            {/* Performance level */}
+            <FieldLabel
+              label="Performance level"
+              hint="How would you describe your performance/ability on the field?"
+            />
+            <SelectRow
+              value={form.performanceLevel}
+              placeholder="Select performance level"
+              onPress={() => openPicker('Performance level', PERFORMANCE_LEVELS, 'performanceLevel')}
+            />
 
-        {/* Showreel */}
-        <View style={styles.showreelSection}>
-          <FieldLabel label="Showreel" />
-          <TouchableOpacity style={styles.videoBox} activeOpacity={0.8}>
-            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={{ marginBottom: 8 }}>
-              <Path
-                d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.895L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"
-                stroke="rgba(255,255,255,0.25)"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-            <Text style={styles.videoLabel}>Tap to upload</Text>
-            <Text style={styles.videoSub}>Max 30 secs.</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Showreel */}
+            <View style={styles.showreelSection}>
+              <FieldLabel label="Showreel" />
+              <TouchableOpacity style={styles.videoBox} activeOpacity={0.8}>
+                <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={{ marginBottom: 8 }}>
+                  <Path
+                    d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.895L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={styles.videoLabel}>Tap to upload</Text>
+                <Text style={styles.videoSub}>Max 30 secs.</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* Error */}
         {error && <Text style={styles.error}>{error}</Text>}
@@ -488,6 +570,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     gap: 5,
+  },
+
+  row: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  rowField: {
+    flex: 1,
   },
 
   photoRow: {

@@ -36,6 +36,8 @@ export interface PlayerProfile {
   goals?: number
   assists?: number
   clean_sheets?: number
+  gender?: 'male' | 'female' | null
+  skill_level?: string | null
   bio?: string | null
   profile_photo_url?: string | null
   highlight_reel_url?: string | null

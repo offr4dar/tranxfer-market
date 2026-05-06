@@ -4,6 +4,7 @@ import {
   ActivityIndicator, TouchableOpacity, ScrollView,
 } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
+import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import PlayerCard from '@/components/PlayerCard'
@@ -28,6 +29,7 @@ function ageBracketToRange(bracket: string) {
 }
 
 export default function FeedScreen() {
+  const router = useRouter()
   const { userId } = useAuth()
   const { devRole } = useDevRole()
   const [players, setPlayers] = useState<PlayerProfile[]>([])
@@ -288,6 +290,7 @@ export default function FeedScreen() {
               scoutId={resolvedScoutId}
               isShortlisted={shortlistedIds.has(item.id)}
               isSubscribed={resolvedIsSubscribed}
+              onPress={resolvedIsScout ? () => router.push(`/player/${item.id}` as any) : undefined}
             />
           )}
         />

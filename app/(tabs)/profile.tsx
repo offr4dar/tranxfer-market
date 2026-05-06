@@ -13,6 +13,7 @@ import ScreenBackground from '@/components/ScreenBackground'
 import ProfileInsightsChart from '@/components/ProfileInsightsChart'
 import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
+import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
 
 function EditIcon() {
@@ -82,17 +83,40 @@ export default function ProfileScreen() {
     totalViews: number
     totalShortlists: number
   } | null>(null)
+  const { devRole } = useDevRole()
+  const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return
 
-    const { data: p } = await supabase
-      .from('player_profiles')
-      .select('*').eq('user_id', userId).maybeSingle()
+    const tryPlayer = async () => {
+      const { data: p } = await supabase
+        .from('player_profiles')
+        .select('*').eq('user_id', userId).maybeSingle()
+      return p
+    }
 
-    if (p) {
+    const tryScout = async () => {
+      const { data: a } = await supabase
+        .from('scout_profiles')
+        .select('*').eq('user_id', userId).maybeSingle()
+      return a
+    }
+
+    let pData: any = null
+    let aData: any = null
+
+    if (activeRole === 'player') {
+      pData = await tryPlayer()
+      if (!pData) aData = await tryScout()
+    } else {
+      aData = await tryScout()
+      if (!aData) pData = await tryPlayer()
+    }
+
+    if (pData) {
       setRole('player')
-      setData(p)
+      setData(pData)
       setLoading(false)
 
       // Build Mon–Sun buckets for the current ISO week
@@ -117,7 +141,7 @@ export default function ProfileScreen() {
         { count: weekLogCount },
       ] = await Promise.all([
         supabase.from('profile_views').select('viewed_at').eq('player_id', userId).gte('viewed_at', since),
-        supabase.from('watchlist_items').select('created_at').eq('player_id', p.id).gte('created_at', since),
+        supabase.from('watchlist_items').select('created_at').eq('player_id', pData.id).gte('created_at', since),
         supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
         supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('match_date', since),
       ])
@@ -142,15 +166,12 @@ export default function ProfileScreen() {
         totalViews:      viewPoints.reduce((a, b) => a + b, 0),
         totalShortlists: shortlistPoints.reduce((a, b) => a + b, 0),
       })
-      return
+    } else if (aData) {
+      setRole('scout')
+      setData(aData as unknown as PlayerData)
     }
-
-    const { data: a } = await supabase
-      .from('scout_profiles')
-      .select('*').eq('user_id', userId).maybeSingle()
-    if (a) { setRole('scout'); setData(a as unknown as PlayerData) }
     setLoading(false)
-  }, [userId])
+  }, [userId, activeRole])
 
   // Re-fetch whenever this screen comes into focus (covers initial load + returning from edit-profile)
   useFocusEffect(useCallback(() => { fetchProfile() }, [fetchProfile]))
@@ -177,7 +198,7 @@ export default function ProfileScreen() {
   }
 
   const initials = [data.first_name?.[0], data.last_name?.[0]].filter(Boolean).join('')
-  const player = role === 'player' ? (data as PlayerData) : null
+  const player = activeRole === 'player' ? (data as PlayerData) : null
   const score  = player?.profile_completion_score ?? 0
 
   return (

@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, StyleSheet,
   RefreshControl, ActivityIndicator,
 } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import PlayerCard from '@/components/PlayerCard'
@@ -13,6 +14,7 @@ import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
 
 export default function ShortlistScreen() {
+  const router = useRouter()
   const { userId } = useAuth()
   const { devRole } = useDevRole()
   const [players, setPlayers] = useState<PlayerProfile[]>([])
@@ -144,6 +146,7 @@ export default function ShortlistScreen() {
               scoutId={userId ?? undefined}
               isShortlisted
               isSubscribed={resolvedIsSubscribed}
+              onPress={() => router.push(`/player/${item.id}` as any)}
             />
           )}
         />
