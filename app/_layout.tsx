@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo'
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
 import * as SecureStore from 'expo-secure-store'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
@@ -32,55 +32,42 @@ const tokenCache = {
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
   const { isLoaded, isSignedIn } = useAuth()
-  const { user } = useUser()
   const { isDemoMode } = useDevRole()
   const segments = useSegments()
   const router = useRouter()
 
-  const isAdmin = isLoaded
-    ? (user?.publicMetadata as { role?: string })?.role === 'admin'
-    : false
-
   useEffect(() => {
     if (!isLoaded) return
 
-    const segs          = segments as string[]
-    const inAuthGroup   = segs[0] === '(auth)'
-    const onSplash      = segs[0] === 'splash'
-    const onIndex       = !segs[0]
-    const onDemoSelect  = segs[0] === 'demo-select'
-    const onOnboarding  = segs[1] === 'onboarding'
+    const segs         = segments as string[]
+    const inAuthGroup  = segs[0] === '(auth)'
+    const onSplash     = segs[0] === 'splash'
+    const onIndex      = !segs[0]
+    const onDemoSelect = segs[0] === 'demo-select'
+    const onOnboarding = segs[1] === 'onboarding'
 
-    // Admin signed in + not yet in demo mode → show demo selector
-    if (isSignedIn && isAdmin && !isDemoMode && (onSplash || onIndex)) {
+    // Entry point → always show demo-select first for everyone
+    if (onIndex || onSplash) {
       router.replace('/demo-select' as any)
       return
     }
 
-    // Admin already chose a demo role → go straight to app
-    if (isSignedIn && isAdmin && isDemoMode && (onSplash || onIndex)) {
-      router.replace('/(tabs)/profile')
+    // On demo-select → always allow, never redirect away
+    if (onDemoSelect) return
+
+    // In demo mode → keep in app; if somehow in auth group, push to profile
+    if (isDemoMode) {
+      if (inAuthGroup) router.replace('/(tabs)/profile')
       return
     }
 
-    // Admin on demo-select → stay (don't redirect away)
-    if (isSignedIn && isAdmin && onDemoSelect) return
-
-    // Normal signed-in user
-    if (isSignedIn && (onSplash || onIndex)) {
-      router.replace('/(tabs)/profile')
-      return
-    }
-
-    if (onSplash || onIndex) return
-
-    // Standard guard for all other routes
+    // Standard auth guard for real (non-demo) users
     if (isSignedIn && inAuthGroup && !onOnboarding) {
       router.replace('/(tabs)/profile')
-    } else if (!isSignedIn && !inAuthGroup && !onDemoSelect) {
+    } else if (!isSignedIn && !inAuthGroup) {
       router.replace('/(auth)/welcome')
     }
-  }, [isLoaded, isSignedIn, isAdmin, isDemoMode, segments])
+  }, [isLoaded, isSignedIn, isDemoMode, segments])
 
   return null
 }

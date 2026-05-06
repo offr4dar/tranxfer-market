@@ -1,11 +1,7 @@
-import { useEffect } from 'react'
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, StatusBar,
-} from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useUser } from '@clerk/clerk-expo'
+import { useAuth } from '@clerk/clerk-expo'
 import Svg, { Path, Circle } from 'react-native-svg'
 import { useDevRole, DevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
@@ -53,19 +49,8 @@ const ROLES: {
 export default function DemoSelectScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { user, isLoaded } = useUser()
+  const { isSignedIn } = useAuth()
   const { enterDemo } = useDevRole()
-
-  const isAdmin = isLoaded
-    ? (user?.publicMetadata as { role?: string })?.role === 'admin'
-    : false
-
-  // Non-admins should never land here — redirect away
-  useEffect(() => {
-    if (isLoaded && !isAdmin) {
-      router.replace('/(auth)/welcome' as any)
-    }
-  }, [isLoaded, isAdmin])
 
   const handlePickRole = (role: DevRole) => {
     enterDemo(role)
@@ -73,7 +58,11 @@ export default function DemoSelectScreen() {
   }
 
   const handleSignIn = () => {
-    router.replace('/(auth)/welcome' as any)
+    if (isSignedIn) {
+      router.replace('/(tabs)/profile')
+    } else {
+      router.replace('/(auth)/welcome' as any)
+    }
   }
 
   return (
