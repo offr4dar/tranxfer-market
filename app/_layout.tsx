@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth } from '@clerk/clerk-expo'
+import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo'
 import * as SecureStore from 'expo-secure-store'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
@@ -7,6 +7,7 @@ import { View } from 'react-native'
 import { Colors } from '@/constants/theme'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
+import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 
 // Prevent the native splash from auto-hiding — we control when to hide it.
 // This must be called at module level (before any component renders).
@@ -31,24 +32,43 @@ const tokenCache = {
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
   const { isLoaded, isSignedIn } = useAuth()
+  const { user } = useUser()
+  const { isDemoMode } = useDevRole()
   const segments = useSegments()
   const router = useRouter()
 
-  function redirectToHome() {
-    router.replace('/(tabs)/profile')
-  }
+  const isAdmin = isLoaded
+    ? (user?.publicMetadata as { role?: string })?.role === 'admin'
+    : false
 
   useEffect(() => {
     if (!isLoaded) return
 
-    const segs         = segments as string[]
-    const inAuthGroup  = segs[0] === '(auth)'
-    const onSplash     = segs[0] === 'splash'
-    const onIndex      = !segs[0]
-    const onOnboarding = segs[1] === 'onboarding'
+    const segs          = segments as string[]
+    const inAuthGroup   = segs[0] === '(auth)'
+    const onSplash      = segs[0] === 'splash'
+    const onIndex       = !segs[0]
+    const onDemoSelect  = segs[0] === 'demo-select'
+    const onOnboarding  = segs[1] === 'onboarding'
 
+    // Admin signed in + not yet in demo mode → show demo selector
+    if (isSignedIn && isAdmin && !isDemoMode && (onSplash || onIndex)) {
+      router.replace('/demo-select' as any)
+      return
+    }
+
+    // Admin already chose a demo role → go straight to app
+    if (isSignedIn && isAdmin && isDemoMode && (onSplash || onIndex)) {
+      router.replace('/(tabs)/profile')
+      return
+    }
+
+    // Admin on demo-select → stay (don't redirect away)
+    if (isSignedIn && isAdmin && onDemoSelect) return
+
+    // Normal signed-in user
     if (isSignedIn && (onSplash || onIndex)) {
-      redirectToHome()
+      router.replace('/(tabs)/profile')
       return
     }
 
@@ -56,11 +76,11 @@ function AuthGuard() {
 
     // Standard guard for all other routes
     if (isSignedIn && inAuthGroup && !onOnboarding) {
-      redirectToHome()
-    } else if (!isSignedIn && !inAuthGroup) {
+      router.replace('/(tabs)/profile')
+    } else if (!isSignedIn && !inAuthGroup && !onDemoSelect) {
       router.replace('/(auth)/welcome')
     }
-  }, [isLoaded, isSignedIn, segments])
+  }, [isLoaded, isSignedIn, isAdmin, isDemoMode, segments])
 
   return null
 }
@@ -82,29 +102,32 @@ export default function RootLayout() {
       publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       tokenCache={tokenCache}
     >
-      <View style={{ flex: 1, backgroundColor: Colors.background }}>
-        <StatusBar style="light" />
-        <AuthGuard />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.background },
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-          }}
-        >
-          <Stack.Screen name="index"  options={{ animation: 'none', gestureEnabled: false }} />
-          <Stack.Screen name="splash" options={{ animation: 'fade', gestureEnabled: false }} />
-          {/* Auth group: slides in as a unit, internal steps handle their own stack */}
-          <Stack.Screen name="(auth)" options={{ animation: 'slide_from_right' }} />
-          {/* Tabs: slides in, no back gesture once authenticated */}
-          <Stack.Screen name="(tabs)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
-          <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
-          <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
-          <Stack.Screen name="edit-profile" options={{ headerShown: false, animation: 'slide_from_right' }} />
-          <Stack.Screen name="player/[id]" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        </Stack>
-      </View>
+      <DevRoleProvider>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+          <StatusBar style="light" />
+          <AuthGuard />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.background },
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          >
+            <Stack.Screen name="index"       options={{ animation: 'none', gestureEnabled: false }} />
+            <Stack.Screen name="splash"      options={{ animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="demo-select" options={{ animation: 'fade', gestureEnabled: false }} />
+            {/* Auth group */}
+            <Stack.Screen name="(auth)" options={{ animation: 'slide_from_right' }} />
+            {/* Tabs: no back gesture once authenticated */}
+            <Stack.Screen name="(tabs)" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+            <Stack.Screen name="settings"        options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="edit-profile"    options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="player/[id]"     options={{ headerShown: false, animation: 'slide_from_right' }} />
+          </Stack>
+        </View>
+      </DevRoleProvider>
     </ClerkProvider>
   )
 }

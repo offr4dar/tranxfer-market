@@ -12,6 +12,7 @@ import { PlayerProfile } from '@/types'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
+import { DEMO_FEED_PLAYERS } from '@/lib/demoData'
 
 const MASK = '*****'
 
@@ -88,15 +89,26 @@ export default function PlayerProfileScoutView() {
   const [messaging, setMessaging]     = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const { devRole } = useDevRole()
+  const { isDemoMode } = useDevRole()
 
-  const resolvedIsSubscribed = __DEV__ ? devRole === 'scout_subscribed' : isSubscribed
+  const resolvedIsSubscribed = (isDemoMode || __DEV__) ? devRole === 'scout_subscribed' : isSubscribed
 
   useEffect(() => {
-    if (devRole === 'player') {
+    if (devRole === 'player' && !isDemoMode) {
       router.replace('/profile')
       return
     }
     if (!id || !userId) return
+
+    // Demo mode: match the tapped player from dummy data (or fall back to first)
+    if (isDemoMode) {
+      const match = DEMO_FEED_PLAYERS.find(p => p.id === id) ?? DEMO_FEED_PLAYERS[0]
+      setPlayer(match)
+      setShortlisted(false)
+      setLoading(false)
+      return
+    }
+
     ;(async () => {
       const [{ data: p }, { data: wl }, { data: scout }] = await Promise.all([
         supabase

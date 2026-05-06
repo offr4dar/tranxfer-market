@@ -15,6 +15,7 @@ import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
+import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
 
 function EditIcon() {
   return (
@@ -84,10 +85,36 @@ export default function ProfileScreen() {
     totalShortlists: number
   } | null>(null)
   const { devRole } = useDevRole()
+  const { isDemoMode } = useDevRole()
   const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return
+
+    // ── Demo mode: use hardcoded dummy data, skip Supabase ──
+    if (isDemoMode) {
+      if (devRole === 'player') {
+        setRole('player')
+        setData(DEMO_PLAYER_PROFILE as any)
+        setInsights({
+          viewPoints:       [2, 5, 3, 8, 4, 6, 1],
+          shortlistPoints:  [0, 1, 0, 2, 1, 1, 0],
+          dayLabels:        ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          totalViews:       29,
+          totalShortlists:  5,
+        })
+        setTotalLogs(12)
+        setWeekLogs(3)
+      } else {
+        const scoutProfile = devRole === 'scout_subscribed'
+          ? DEMO_SCOUT_PRO_PROFILE
+          : DEMO_SCOUT_FREE_PROFILE
+        setRole('scout')
+        setData(scoutProfile as any)
+      }
+      setLoading(false)
+      return
+    }
 
     const tryPlayer = async () => {
       const { data: p } = await supabase
@@ -521,9 +548,15 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={styles.signOut}
-        onPress={() => signOut().then(() => router.replace('/splash'))}
+        onPress={() =>
+          isDemoMode
+            ? router.replace('/demo-select' as any)
+            : signOut().then(() => router.replace('/splash'))
+        }
       >
-        <Text style={styles.signOutText}>Sign out</Text>
+        <Text style={styles.signOutText}>
+          {isDemoMode ? 'Exit Demo' : 'Sign out'}
+        </Text>
       </TouchableOpacity>
       </ScrollView>
       <PerformanceLogSheet

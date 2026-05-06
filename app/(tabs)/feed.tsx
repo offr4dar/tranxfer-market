@@ -23,6 +23,7 @@ import FilterPanel, {
 import PlayerFilterPanel, {
   ScoutFilters, DEFAULT_SCOUT_FILTERS, isScoutFiltered,
 } from '@/components/PlayerFilterPanel'
+import { DEMO_FEED_PLAYERS } from '@/lib/demoData'
 
 function ageBracketToRange(bracket: string) {
   return ageBracketRange(bracket)
@@ -32,6 +33,7 @@ export default function FeedScreen() {
   const router = useRouter()
   const { userId } = useAuth()
   const { devRole } = useDevRole()
+  const { isDemoMode } = useDevRole()
   const [players, setPlayers] = useState<PlayerProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -54,10 +56,10 @@ export default function FeedScreen() {
   const [playerLat, setPlayerLat] = useState<number | null>(null)
   const [playerLng, setPlayerLng] = useState<number | null>(null)
 
-  // Dev override — replaces real role flags in __DEV__ builds
-  const resolvedIsScout        = __DEV__ ? devRole !== 'player'           : isScout
-  const resolvedIsSubscribed   = __DEV__ ? devRole === 'scout_subscribed' : isSubscribed
-  const resolvedClearanceCheck = __DEV__ ? true                          : clearanceCheck
+  // Dev override — replaces real role flags in __DEV__ or demo builds
+  const resolvedIsScout        = (__DEV__ || isDemoMode) ? devRole !== 'player'           : isScout
+  const resolvedIsSubscribed   = (__DEV__ || isDemoMode) ? devRole === 'scout_subscribed' : isSubscribed
+  const resolvedClearanceCheck = (__DEV__ || isDemoMode) ? true                          : clearanceCheck
   const resolvedScoutId        = resolvedIsScout ? (userId ?? undefined) : undefined
 
   const fetchScoutContext = useCallback(async () => {
@@ -133,11 +135,17 @@ export default function FeedScreen() {
   }, [filters, submittedQuery])
 
   useEffect(() => {
+    // Demo mode: skip Supabase, load dummy players immediately
+    if (isDemoMode) {
+      setPlayers(DEMO_FEED_PLAYERS)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const tasks = [fetchPlayers(), fetchScoutContext()]
     if (!resolvedIsScout) tasks.push(fetchPlayerContext())
     Promise.all(tasks).finally(() => setLoading(false))
-  }, [fetchPlayers, fetchScoutContext, fetchPlayerContext, resolvedIsScout])
+  }, [fetchPlayers, fetchScoutContext, fetchPlayerContext, resolvedIsScout, isDemoMode])
 
   const onRefresh = async () => {
     setRefreshing(true)

@@ -2,14 +2,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { View } from 'react-native'
 import { Tabs, usePathname, useRouter } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
-import { useFocusEffect } from '@react-navigation/native'
 import * as Updates from 'expo-updates'
 import { supabase } from '@/lib/supabase'
 import {
   FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
-import { DevRoleProvider, useDevRole } from '@/lib/devRole'
+import { useDevRole } from '@/lib/devRole'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import PersistentFAB from '@/components/PersistentFAB'
 
@@ -32,7 +31,7 @@ function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
   )
 }
 
-// ─── Inner layout — must live inside DevRoleProvider to call useDevRole ───────
+// ─── Inner layout — reads devRole from root-level provider ─────────────────────
 function TabsContent() {
   const { userId } = useAuth()
   const { devRole } = useDevRole()
@@ -171,10 +170,11 @@ export default function TabsLayout() {
   const showRoleSwitcher = __DEV__ || Updates.channel === 'preview' || isAdmin
 
   return (
-    <DevRoleProvider>
+    // DevRoleProvider now lives in root _layout.tsx — no wrapper needed here
+    <>
       <TabsContent />
       <PersistentFAB />
       {showRoleSwitcher && <DevRoleSwitcher />}
-    </DevRoleProvider>
+    </>
   )
 }
