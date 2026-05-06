@@ -1,19 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { Tabs, usePathname, useRouter } from 'expo-router'
-import { useAuth, useUser } from '@clerk/clerk-expo'
-import * as Updates from 'expo-updates'
+import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import {
   FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
 import { useDevRole } from '@/lib/devRole'
-import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import PersistentFAB from '@/components/PersistentFAB'
 
-// showRoleSwitcher is evaluated per-render inside TabsLayout
-// so it can read the signed-in user's Clerk publicMetadata.
 
 // ─── Unread badge overlay ─────────────────────────────────────────────────────
 function BadgeIcon({ icon, count }: { icon: React.ReactNode; count: number }) {
@@ -146,35 +142,10 @@ function TabsContent() {
 
 // ─── Root layout ──────────────────────────────────────────────────────────────
 export default function TabsLayout() {
-  const { user, isLoaded } = useUser()
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  // Force-reload the Clerk user on mount so publicMetadata set in the Clerk
-  // dashboard (e.g. { role: 'admin' }) is always fresh — even if the local
-  // session was cached before the metadata was added. We store the result in
-  // state so the component re-renders once the reload completes.
-  useEffect(() => {
-    if (!isLoaded || !user) return
-    // Check cached value immediately
-    const cached = (user.publicMetadata as { role?: string })?.role === 'admin'
-    if (cached) { setIsAdmin(true); return }
-    // Then fetch fresh data from Clerk servers
-    user.reload()
-      .then(() => {
-        const fresh = (user.publicMetadata as { role?: string })?.role === 'admin'
-        setIsAdmin(fresh)
-      })
-      .catch(() => {})
-  }, [isLoaded])
-
-  const showRoleSwitcher = __DEV__ || Updates.channel === 'preview' || isAdmin
-
   return (
-    // DevRoleProvider now lives in root _layout.tsx — no wrapper needed here
     <>
       <TabsContent />
       <PersistentFAB />
-      {showRoleSwitcher && <DevRoleSwitcher />}
     </>
   )
 }
