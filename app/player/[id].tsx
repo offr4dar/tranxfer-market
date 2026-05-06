@@ -98,9 +98,8 @@ export default function PlayerProfileScoutView() {
       router.replace('/profile')
       return
     }
-    if (!id || !userId) return
 
-    // Demo mode: match the tapped player from dummy data (or fall back to first)
+    // Demo mode: match the tapped player from dummy data
     if (isDemoMode) {
       const match = DEMO_FEED_PLAYERS.find(p => p.id === id) ?? DEMO_FEED_PLAYERS[0]
       setPlayer(match)
@@ -108,6 +107,8 @@ export default function PlayerProfileScoutView() {
       setLoading(false)
       return
     }
+
+    if (!id || !userId) return
 
     ;(async () => {
       const [{ data: p }, { data: wl }, { data: scout }] = await Promise.all([
@@ -139,6 +140,11 @@ export default function PlayerProfileScoutView() {
   }, [id, userId])
 
   const toggleShortlist = async () => {
+    // In demo mode, just toggle local state — no DB writes
+    if (isDemoMode) {
+      setShortlisted(v => !v)
+      return
+    }
     if (!userId || !id || toggling) return
     setToggling(true)
     if (shortlisted) {
@@ -259,10 +265,16 @@ export default function PlayerProfileScoutView() {
             resizeMode="contain"
           />
           <View style={styles.levelText}>
-            <Text style={styles.levelHeading}>{MASK}{'\n'}LEVEL</Text>
+            <Text style={styles.levelHeading}>
+              {resolvedIsSubscribed
+                ? (player.league_level ?? 'NON-LEAGUE').replace(/_/g, ' ').toUpperCase() + '\nLEVEL'
+                : '*****\nLEVEL'}
+            </Text>
             <Text style={styles.levelDesc}>
               {'This player has described themselves as '}
-              <Text style={styles.levelDescBold}>{MASK}</Text>
+              <Text style={styles.levelDescBold}>
+                {resolvedIsSubscribed ? (player.skill_level ?? 'mid-level skill') : '*****'}
+              </Text>
             </Text>
           </View>
         </View>

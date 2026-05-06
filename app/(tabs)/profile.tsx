@@ -84,14 +84,11 @@ export default function ProfileScreen() {
     totalViews: number
     totalShortlists: number
   } | null>(null)
-  const { devRole } = useDevRole()
-  const { isDemoMode } = useDevRole()
+  const { devRole, isDemoMode } = useDevRole()
   const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
 
   const fetchProfile = useCallback(async () => {
-    if (!userId) return
-
-    // ── Demo mode: use hardcoded dummy data, skip Supabase ──
+    // ── Demo mode: hardcoded dummy data, no auth/Supabase needed ──────────────
     if (isDemoMode) {
       if (devRole === 'player') {
         setRole('player')
@@ -115,6 +112,9 @@ export default function ProfileScreen() {
       setLoading(false)
       return
     }
+
+    // ── Real mode: require userId ──────────────────────────────────────────────
+    if (!userId) return
 
     const tryPlayer = async () => {
       const { data: p } = await supabase
@@ -259,7 +259,72 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.heroFirstName}>{data.first_name}</Text>
         <Text style={styles.heroLastName}>{data.last_name}</Text>
+
+        {/* Tier badge for scout in demo mode */}
+        {isDemoMode && activeRole === 'scout' && (
+          <View style={[
+            styles.tierBadge,
+            devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
+          ]}>
+            <Text style={styles.tierBadgeText}>
+              {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
+            </Text>
+          </View>
+        )}
       </View>
+
+      {/* ── Scout info card (demo mode only) ── */}
+      {isDemoMode && activeRole === 'scout' && (() => {
+        const scout = devRole === 'scout_subscribed'
+          ? DEMO_SCOUT_PRO_PROFILE
+          : DEMO_SCOUT_FREE_PROFILE
+        return (
+          <View style={styles.scoutInfoCard}>
+            {/* Type + org */}
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>Scout Type</Text>
+              <Text style={styles.scoutInfoValue}>
+                {scout.scout_type === 'club_scout' ? 'Club Scout' : 'Freelance Scout'}
+                {(scout as any).affiliated_club ? ` · ${(scout as any).affiliated_club}` : ''}
+              </Text>
+            </View>
+            <View style={styles.scoutInfoDivider} />
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>Organisation</Text>
+              <Text style={styles.scoutInfoValue}>{scout.organisation_name}</Text>
+            </View>
+            <View style={styles.scoutInfoDivider} />
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>Experience</Text>
+              <Text style={styles.scoutInfoValue}>{scout.years_experience} years</Text>
+            </View>
+            <View style={styles.scoutInfoDivider} />
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>Regions</Text>
+              <Text style={styles.scoutInfoValue}>{scout.regions_covered.join(', ')}</Text>
+            </View>
+            <View style={styles.scoutInfoDivider} />
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>Specialisms</Text>
+              <Text style={styles.scoutInfoValue}>{scout.specialisms.join(', ')}</Text>
+            </View>
+            <View style={styles.scoutInfoDivider} />
+            <View style={styles.scoutInfoRow}>
+              <Text style={styles.scoutInfoLabel}>DBS Verified</Text>
+              <Text style={[styles.scoutInfoValue, { color: Colors.brand }]}>
+                {scout.clearance_check ? '✓  Cleared' : 'Pending'}
+              </Text>
+            </View>
+
+            {/* Upgrade CTA for free scouts */}
+            {devRole === 'scout_free' && (
+              <TouchableOpacity style={styles.upgradeBtn} activeOpacity={0.85}>
+                <Text style={styles.upgradeBtnText}>Upgrade to Scout Pro</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )
+      })()}
 
       {/* ── Profile completion (players only) ── */}
       {player && (
@@ -642,6 +707,84 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textTransform: 'uppercase',
     lineHeight: 65,
+  },
+  tierBadge: {
+    marginTop: 8,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  tierBadgeFree: {
+    backgroundColor: 'rgba(196,155,30,0.12)',
+    borderColor: 'rgba(196,155,30,0.4)',
+  },
+  tierBadgePro: {
+    backgroundColor: 'rgba(15,95,255,0.12)',
+    borderColor: 'rgba(15,95,255,0.4)',
+  },
+  tierBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: Colors.text,
+    textTransform: 'uppercase',
+  },
+
+  // ── Scout info card ────────────────────────────────────────────────────────
+  scoutInfoCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    backgroundColor: '#111111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  scoutInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  scoutInfoDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginHorizontal: Spacing.lg,
+  },
+  scoutInfoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.45)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    flexShrink: 0,
+  },
+  scoutInfoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+    textAlign: 'right',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  upgradeBtn: {
+    margin: Spacing.lg,
+    marginTop: Spacing.md,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: Colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   insightBlock: {
