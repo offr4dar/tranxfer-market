@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { View } from 'react-native'
 import { Tabs, usePathname, useRouter } from 'expo-router'
 import { useAuth, useUser } from '@clerk/clerk-expo'
+import { useFocusEffect } from '@react-navigation/native'
 import * as Updates from 'expo-updates'
 import { supabase } from '@/lib/supabase'
 import {
@@ -146,7 +147,17 @@ function TabsContent() {
 
 // ─── Root layout ──────────────────────────────────────────────────────────────
 export default function TabsLayout() {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
+
+  // Force a fresh fetch of Clerk user data on mount so that publicMetadata
+  // updated in the Clerk dashboard (e.g. role: 'admin') is always reflected,
+  // even if the session was cached before the metadata was added.
+  useEffect(() => {
+    if (isLoaded && user) {
+      user.reload().catch(() => {})
+    }
+  }, [isLoaded])
+
   const isAdmin = (user?.publicMetadata as { role?: string })?.role === 'admin'
   const showRoleSwitcher = __DEV__ || Updates.channel === 'preview' || isAdmin
 
