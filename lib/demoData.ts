@@ -1,6 +1,82 @@
 import { PlayerProfile } from '@/types'
 
-// ─── Dummy player profile (shown when devRole === 'player') ───────────────────
+// ─── Dummy performance log entries (Marcus Williams) ─────────────────────────
+export interface LogEntry {
+  id: string
+  match_date: string
+  entry_type: 'match' | 'training' | 'trial'
+  context: string | null
+  goals: number | null
+  assists: number | null
+  notes: string | null
+}
+
+export const DEMO_LOG_ENTRIES: LogEntry[] = [
+  {
+    id: 'log-001',
+    match_date: '2025-04-26',
+    entry_type: 'match',
+    context: 'Hartfield United vs Ashdown FC',
+    goals: 1,
+    assists: 2,
+    notes: 'Strong first half. Won a lot of duels in midfield and scored with a driven shot from outside the box.',
+  },
+  {
+    id: 'log-002',
+    match_date: '2025-04-19',
+    entry_type: 'training',
+    context: 'Pre-match prep session',
+    goals: null,
+    assists: null,
+    notes: 'Focused on pressing triggers and transitional shape. Felt sharp.',
+  },
+  {
+    id: 'log-003',
+    match_date: '2025-04-12',
+    entry_type: 'match',
+    context: 'Hartfield United vs Bromley Cross',
+    goals: 0,
+    assists: 1,
+    notes: 'Tough match against a physical side. Maintained discipline and played an incisive through-ball for the winner.',
+  },
+  {
+    id: 'log-004',
+    match_date: '2025-04-05',
+    entry_type: 'trial',
+    context: 'Melbury Town FC — Trial Session',
+    goals: 1,
+    assists: 0,
+    notes: 'Invited for a trial day with the first team. Impressed in the small-sided games and contributed a goal in the scrimmage.',
+  },
+  {
+    id: 'log-005',
+    match_date: '2025-03-29',
+    entry_type: 'match',
+    context: 'Hartfield United vs Larkfield Town',
+    goals: 2,
+    assists: 0,
+    notes: 'Best performance of the season. Both goals were from inside the box — one a tap-in, one a composed finish.',
+  },
+  {
+    id: 'log-006',
+    match_date: '2025-03-22',
+    entry_type: 'training',
+    context: 'Fitness and conditioning',
+    goals: null,
+    assists: null,
+    notes: 'High-intensity interval session. Tested well on sprint distances.',
+  },
+  {
+    id: 'log-007',
+    match_date: '2025-03-15',
+    entry_type: 'match',
+    context: 'Hartfield United vs Westover City',
+    goals: 0,
+    assists: 1,
+    notes: 'Comfortable 3–0 win. Good pressing from midfield kept the opposition pinned back.',
+  },
+]
+
 export const DEMO_PLAYER_PROFILE = {
   id: 'demo-player-001',
   user_id: 'demo-user-player',

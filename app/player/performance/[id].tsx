@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import { useAuth } from '@clerk/clerk-expo'
@@ -8,27 +8,19 @@ import { supabase } from '@/lib/supabase'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
-import { DEMO_LOG_ENTRIES } from '@/lib/demoData'
+import { DEMO_LOG_ENTRIES, DEMO_FEED_PLAYERS, LogEntry } from '@/lib/demoData'
 
-type EntryType = 'match' | 'training' | 'trial'
+// Players with entries vs empty state in demo
+const PLAYERS_WITH_ENTRIES = ['demo-feed-001'] // Jordan Okafor has entries
+// demo-feed-002 (Tom Bradley) and demo-feed-003 (Amara Diallo) show empty state
 
-interface LogEntry {
-  id: string
-  match_date: string
-  entry_type: EntryType
-  context: string | null
-  goals: number | null
-  assists: number | null
-  notes: string | null
-}
-
-const TYPE_LABEL: Record<EntryType, string> = {
+const TYPE_LABEL: Record<string, string> = {
   match:    'Match',
   training: 'Training',
   trial:    'Trial',
 }
 
-const MATCH_COLOR = '#ffd998'
+const MATCH_COLOR    = '#ffd998'
 const MATCH_BADGE_BG = '#3c3324'
 const DEFAULT_BADGE_BG = '#242424'
 
@@ -46,32 +38,46 @@ function formatDate(dateStr: string): string {
   return `${day} ${month}${year}`
 }
 
-export default function PerformanceLogScreen() {
+export default function PlayerPerformanceLogScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { userId } = useAuth()
   const { isDemoMode } = useDevRole()
+
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [playerName, setPlayerName] = useState('')
 
   useEffect(() => {
-    // Demo mode: load dummy entries immediately, no auth needed
+    // ── Demo mode ────────────────────────────────────────────────────────────
     if (isDemoMode) {
-      setEntries(DEMO_LOG_ENTRIES)
+      const player = DEMO_FEED_PLAYERS.find(p => p.id === id) ?? DEMO_FEED_PLAYERS[0]
+      setPlayerName(`${player.first_name} ${player.last_name}`)
+
+      // First dummy player gets entries; others see the empty state
+      if (PLAYERS_WITH_ENTRIES.includes(id as string)) {
+        setEntries(DEMO_LOG_ENTRIES.slice(0, 4)) // show 4 entries for demo
+      } else {
+        setEntries([])
+      }
       setLoading(false)
       return
     }
-    if (!userId) return
+
+    // ── Real mode ─────────────────────────────────────────────────────────────
+    if (!userId || !id) return
+
     supabase
       .from('performance_logs')
       .select('id,match_date,entry_type,context,goals,assists,notes')
-      .eq('user_id', userId)
+      .eq('player_profile_id', id)
       .order('match_date', { ascending: false })
       .then(({ data }) => {
         setEntries(data ?? [])
         setLoading(false)
       })
-  }, [userId, isDemoMode])
+  }, [id, userId, isDemoMode])
 
   return (
     <ScreenBackground>
@@ -88,7 +94,10 @@ export default function PerformanceLogScreen() {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.title}>Performance Log</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Performance Log</Text>
+          {playerName ? <Text style={styles.subtitle}>{playerName}</Text> : null}
+        </View>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -97,11 +106,40 @@ export default function PerformanceLogScreen() {
           <ActivityIndicator color={Colors.brand} />
         </View>
       ) : entries.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>No entries yet. Start logging your activity.</Text>
-        </View>
+        // ── Empty state ──────────────────────────────────────────────────────
+        <ScrollView contentContainerStyle={styles.emptyScroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.emptyWrap}>
+            <Svg width={56} height={56} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+              <Path
+                d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth={1.5}
+              />
+            </Svg>
+            <Text style={styles.emptyTitle}>No Entries Yet</Text>
+            <Text style={styles.emptyBody}>
+              This player hasn't added any performance log entries yet.{'\n'}
+              Entries will appear here once they begin tracking their activity.
+            </Text>
+            <View style={styles.emptyHint}>
+              <Text style={styles.emptyHintText}>
+                Players log matches, training sessions, and trials to build a performance history visible to scouts.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        // ── Entries list ─────────────────────────────────────────────────────
+        <ScrollView
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        >
           {entries.map((entry, index) => {
             const isHighlighted = index % 2 === 1
             const accentColor   = isHighlighted ? MATCH_COLOR : 'rgba(255,255,255,0.2)'
@@ -114,26 +152,22 @@ export default function PerformanceLogScreen() {
                 {/* Date column */}
                 <Text style={styles.dateLabel}>{formatDate(entry.match_date)}</Text>
 
-                {/* Divider */}
+                {/* Content */}
                 <View style={[styles.entryBorder, { borderLeftColor: accentColor }]}>
-                  {/* Type badge */}
                   <View style={[styles.badge, { backgroundColor: badgeBg }]}>
                     <Text style={[styles.badgeText, { color: badgeColor }]}>
                       {TYPE_LABEL[entry.entry_type]}
                     </Text>
                   </View>
 
-                  {/* Context / title */}
                   <Text style={[styles.entryTitle, { color: titleColor }]}>
                     {entry.context ?? TYPE_LABEL[entry.entry_type]}
                   </Text>
 
-                  {/* Notes */}
                   {entry.notes ? (
                     <Text style={styles.entryNotes}>{entry.notes}</Text>
                   ) : null}
 
-                  {/* Goals + Assists — match only */}
                   {entry.entry_type === 'match' && (
                     <>
                       <Text style={styles.statLine}>
@@ -170,38 +204,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
+  headerText: {
     flex: 1,
+    gap: 2,
+  },
+  title: {
     fontFamily: 'Anton_400Regular',
     fontSize: 20,
     color: Colors.text,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
-  headerSpacer: {
-    width: 36,
+  subtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  center: {
-    flex: 1,
+  headerSpacer: { width: 36 },
+
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  emptyScroll: { flexGrow: 1, justifyContent: 'center' },
+  emptyWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+    gap: 14,
   },
-  emptyText: {
-    color: Colors.textSecondary,
+  emptyTitle: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 22,
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  emptyBody: {
     fontSize: 14,
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },
-  list: {
-    padding: Spacing.lg,
-    gap: Spacing.xl,
+  emptyHint: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
   },
-  entry: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 20,
+  emptyHintText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    lineHeight: 20,
   },
+
+  // ── Entries ────────────────────────────────────────────────────────────────
+  list: { padding: Spacing.lg, gap: Spacing.xl },
+  entry: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
   dateLabel: {
     width: 89,
     fontSize: 12,
@@ -240,12 +304,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 20,
   },
-  statLine: {
-    fontSize: 14,
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  statBold: {
-    fontWeight: '700',
-  },
+  statLine: { fontSize: 14, color: Colors.text, lineHeight: 20 },
+  statBold: { fontWeight: '700' },
 })
