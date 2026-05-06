@@ -64,9 +64,11 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   left: {
-    flex: 1,
+    width: 57,   // matches the logo mark width — fixed so right slot gets all remaining space
+    flexShrink: 0,
   },
   right: {
+    flex: 1,
     alignItems: 'flex-end',
   },
 })
