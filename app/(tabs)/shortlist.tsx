@@ -92,7 +92,7 @@ export default function ShortlistScreen() {
           <Text style={styles.lockedIcon}>🔒</Text>
           <Text style={styles.lockedTitle}>Scout accounts only</Text>
           <Text style={styles.lockedSub}>
-            Shortlists are available to scouts and recruiters.{'\n'}
+            The tracker is available to scouts and recruiters.{'\n'}
             Switch to a scout account to use this feature.
           </Text>
         </View>
@@ -134,9 +134,9 @@ export default function ShortlistScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🔖</Text>
-              <Text style={styles.emptyTitle}>No players shortlisted</Text>
+              <Text style={styles.emptyTitle}>No players tracked</Text>
               <Text style={styles.emptySub}>
-                Tap SHORTLIST on any player card to save them here.
+                Tap + Track player on any player card to save them here.
               </Text>
             </View>
           }

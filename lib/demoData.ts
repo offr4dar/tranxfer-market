@@ -1,4 +1,4 @@
-import { PlayerProfile } from '@/types'
+import { PlayerProfile, PlayerEndorsement, EndorsementCount } from '@/types'
 
 // ─── Dummy performance log entries (Marcus Williams) ─────────────────────────
 export interface LogEntry {
@@ -92,8 +92,8 @@ export const DEMO_PLAYER_PROFILE = {
   secondary_positions: ['CAM', 'CDM'],
   current_club: 'Hartfield United FC',
   contract_status: 'available_now' as const,
-  league_level: 'Step 5',
-  skill_level: 'High',
+  league_level: 'Semi-Pro',
+  skill_level: 'Excellent',
   profile_completion_score: 78,
   bio: 'Hardworking central midfielder with excellent vision and a knack for finding space in tight areas. Comfortable on the ball under pressure with good range of passing.',
   is_verified: true,
@@ -171,6 +171,7 @@ export const DEMO_FEED_PLAYERS: PlayerProfile[] = [
     appearances: 22,
     goals: 9,
     assists: 7,
+    last_activity_at: new Date(Date.now() - 0).toISOString(), // today
   },
   {
     id: 'demo-feed-002',
@@ -197,6 +198,7 @@ export const DEMO_FEED_PLAYERS: PlayerProfile[] = [
     appearances: 41,
     goals: 3,
     assists: 2,
+    last_activity_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), // 2 days ago
   },
   {
     id: 'demo-feed-003',
@@ -223,5 +225,100 @@ export const DEMO_FEED_PLAYERS: PlayerProfile[] = [
     appearances: 17,
     goals: 14,
     assists: 3,
+    last_activity_at: new Date(Date.now() - 5 * 86_400_000).toISOString(), // this week
   },
 ]
+
+// ─── Dummy endorsements for the demo player (Marcus Williams) ─────────────────
+// Attribute IDs map to labels in the ENDORSEMENT_CATEGORIES constant (endorsements.tsx)
+
+export const DEMO_ENDORSEMENTS: PlayerEndorsement[] = [
+  // David Chen (scout_free) — 3 endorsements
+  {
+    id: 'demo-end-001',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-free',
+    scout_name: 'David Chen',
+    endorsement_id: 'Stamina',
+    created_at: '2025-04-20T10:00:00Z',
+  },
+  {
+    id: 'demo-end-002',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-free',
+    scout_name: 'David Chen',
+    endorsement_id: 'Composure',
+    created_at: '2025-04-20T10:01:00Z',
+  },
+  {
+    id: 'demo-end-003',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-free',
+    scout_name: 'David Chen',
+    endorsement_id: 'Passing',
+    created_at: '2025-04-20T10:02:00Z',
+  },
+  // Sarah Mitchell (scout_pro) — 3 endorsements
+  {
+    id: 'demo-end-004',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-pro',
+    scout_name: 'Sarah Mitchell',
+    endorsement_id: 'Stamina',
+    created_at: '2025-04-22T14:30:00Z',
+  },
+  {
+    id: 'demo-end-005',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-pro',
+    scout_name: 'Sarah Mitchell',
+    endorsement_id: 'Passing',
+    created_at: '2025-04-22T14:31:00Z',
+  },
+  {
+    id: 'demo-end-006',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-pro',
+    scout_name: 'Sarah Mitchell',
+    endorsement_id: 'Reading the game',
+    created_at: '2025-04-22T14:32:00Z',
+  },
+  // James Walker (third scout) — 2 endorsements
+  {
+    id: 'demo-end-007',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-3',
+    scout_name: 'James Walker',
+    endorsement_id: 'Composure',
+    created_at: '2025-04-24T09:10:00Z',
+  },
+  {
+    id: 'demo-end-008',
+    player_id: 'demo-player-001',
+    scout_user_id: 'demo-user-scout-3',
+    scout_name: 'James Walker',
+    endorsement_id: 'Leadership',
+    created_at: '2025-04-24T09:11:00Z',
+  },
+]
+
+/**
+ * Build aggregated endorsement counts from a raw list.
+ * `myScoutId` is used to flag which ones the current scout has already endorsed.
+ */
+export function aggregateEndorsements(
+  endorsements: PlayerEndorsement[],
+  myScoutId?: string,
+): EndorsementCount[] {
+  const map: Record<string, EndorsementCount> = {}
+  for (const e of endorsements) {
+    if (!map[e.endorsement_id]) {
+      map[e.endorsement_id] = { endorsement_id: e.endorsement_id, count: 0, endorsed_by_me: false }
+    }
+    map[e.endorsement_id].count++
+    if (myScoutId && e.scout_user_id === myScoutId) {
+      map[e.endorsement_id].endorsed_by_me = true
+    }
+  }
+  return Object.values(map).sort((a, b) => b.count - a.count)
+}

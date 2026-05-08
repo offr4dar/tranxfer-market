@@ -23,7 +23,7 @@ import FilterPanel, {
 import PlayerFilterPanel, {
   ScoutFilters, DEFAULT_SCOUT_FILTERS, isScoutFiltered,
 } from '@/components/PlayerFilterPanel'
-import { DEMO_FEED_PLAYERS } from '@/lib/demoData'
+import { DEMO_FEED_PLAYERS, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
 
 function ageBracketToRange(bracket: string) {
   return ageBracketRange(bracket)
@@ -60,7 +60,15 @@ export default function FeedScreen() {
   const resolvedIsScout        = (__DEV__ || isDemoMode) ? devRole !== 'player'           : isScout
   const resolvedIsSubscribed   = (__DEV__ || isDemoMode) ? devRole === 'scout_subscribed' : isSubscribed
   const resolvedClearanceCheck = (__DEV__ || isDemoMode) ? true                          : clearanceCheck
-  const resolvedScoutId        = resolvedIsScout ? (userId ?? undefined) : undefined
+
+  // In demo mode userId is null (no Clerk session) — use the demo profile IDs instead
+  const resolvedScoutId = resolvedIsScout
+    ? isDemoMode
+      ? devRole === 'scout_subscribed'
+        ? DEMO_SCOUT_PRO_PROFILE.user_id
+        : DEMO_SCOUT_FREE_PROFILE.user_id
+      : (userId ?? undefined)
+    : undefined
 
   const fetchScoutContext = useCallback(async () => {
     if (!userId) return
@@ -298,7 +306,12 @@ export default function FeedScreen() {
               scoutId={resolvedScoutId}
               isShortlisted={shortlistedIds.has(item.id)}
               isSubscribed={resolvedIsSubscribed}
+              isDemoMode={isDemoMode}
               onPress={resolvedIsScout ? () => router.push(`/player/${item.id}` as any) : undefined}
+              onUpgradePress={resolvedIsScout && !resolvedIsSubscribed
+                ? () => router.push('/upgrade' as any)
+                : undefined
+              }
             />
           )}
         />
@@ -330,11 +343,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    marginLeft: 12,
   },
   searchInput: {
     flex: 1,
     height: 38,
-    backgroundColor: '#111111',
+    backgroundColor: '#1E1E1E',
     borderRadius: 100,
     borderColor: 'transparent',
   },

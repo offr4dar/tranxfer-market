@@ -1,3 +1,5 @@
+import { EndorsementCategory } from '@/constants/endorsements'
+
 export type UserRole = 'player' | 'club' | 'scout' | 'admin'
 
 export type ContractStatus = 'available_now' | 'available_eot' | 'under_contract' | 'trial' | null | undefined
@@ -87,28 +89,6 @@ export interface ScoutProfile {
   specialisms: string[]
   age?: number
   postcode?: string
-  years_experience?: number
-  league_level?: string
-  bio?: string
-  logo_url?: string
-  is_verified: boolean
-  clearance_check?: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface ScoutProfile {
-  id: string
-  user_id: string
-  first_name: string
-  last_name: string
-  scout_type: 'club_scout' | 'freelance_scout'
-  affiliated_club?: string
-  organisation_name?: string
-  regions_covered: string[]
-  specialisms: string[]
-  age?: number
-  postcode?: string
   lat?: number | null
   lng?: number | null
   years_experience?: number
@@ -119,6 +99,33 @@ export interface ScoutProfile {
   clearance_check?: boolean
   created_at: string
   updated_at: string
+}
+
+// ─── Endorsements ─────────────────────────────────────────────────────────────
+
+export interface EndorsementDef {
+  id: string
+  emoji: string
+  label: string
+  category: EndorsementCategory
+  description: string
+}
+
+/** A single scout's endorsement of a player for a specific trait */
+export interface PlayerEndorsement {
+  id?: string
+  player_id: string
+  scout_user_id: string
+  scout_name: string
+  endorsement_id: string
+  created_at?: string
+}
+
+/** Aggregated endorsement count shown on a profile */
+export interface EndorsementCount {
+  endorsement_id: string
+  count: number
+  endorsed_by_me: boolean
 }
 
 export interface SearchFilters {

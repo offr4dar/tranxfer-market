@@ -526,6 +526,43 @@ CREATE INDEX idx_sl_players_list    ON shortlist_players (shortlist_id);
 CREATE INDEX idx_sl_players_player  ON shortlist_players (player_id);
 
 -- =============================================================================
+-- TABLE: player_endorsements
+-- Scouts endorse players with predefined trait badges (e.g. "Clinical Finisher").
+-- One row per scout+player+trait combination. Max 3 endorsements per scout per player
+-- is enforced at the application layer; the unique constraint prevents duplicates.
+-- =============================================================================
+CREATE TABLE player_endorsements (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  player_id        UUID NOT NULL REFERENCES player_profiles(id) ON DELETE CASCADE,
+  scout_user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endorsement_id   TEXT NOT NULL,              -- Matches EndorsementDef.id in app constants
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_endorsement UNIQUE (player_id, scout_user_id, endorsement_id)
+);
+
+CREATE INDEX idx_endorsements_player   ON player_endorsements (player_id);
+CREATE INDEX idx_endorsements_scout    ON player_endorsements (scout_user_id);
+CREATE INDEX idx_endorsements_trait    ON player_endorsements (endorsement_id);
+
+-- RLS: scouts can manage their own; anyone (authenticated) can read
+ALTER TABLE player_endorsements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "endorsements: scouts insert own"
+  ON player_endorsements FOR INSERT
+  WITH CHECK (scout_user_id = auth_user_id());
+
+CREATE POLICY "endorsements: scouts delete own"
+  ON player_endorsements FOR DELETE
+  USING (scout_user_id = auth_user_id());
+
+CREATE POLICY "endorsements: public read"
+  ON player_endorsements FOR SELECT
+  USING (TRUE);
+
+
+
+-- =============================================================================
 -- TABLE: profile_views
 -- Analytics: who viewed which player profile, when
 -- =============================================================================

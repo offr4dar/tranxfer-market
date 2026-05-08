@@ -12,6 +12,7 @@ import ScreenBackground from '@/components/ScreenBackground'
 import { supabase } from '@/lib/supabase'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
+import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
 
 // ─── Picker options ───────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ const PLAYING_LEVELS = [
   'Grassroots',
   'Sunday League',
   'Amateur',
-  'Semi-Professional',
+  'Semi-Pro',
   'Professional',
   'Academy (Youth)',
 ]
@@ -182,7 +183,7 @@ export default function EditProfileScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { userId } = useAuth()
-  const { devRole } = useDevRole()
+  const { devRole, isDemoMode } = useDevRole()
   const isPlayer = devRole === 'player'
 
   const [form, setForm] = useState<FormState>({
@@ -204,6 +205,39 @@ export default function EditProfileScreen() {
 
   // Load current profile
   useEffect(() => {
+    // ── Demo mode: pre-fill from dummy data, no Supabase needed ──────────────
+    if (isDemoMode) {
+      if (devRole === 'player') {
+        const p = DEMO_PLAYER_PROFILE
+        setForm({
+          firstName:        p.first_name,
+          lastName:         p.last_name,
+          dob:              p.age ? `${p.age}` : '',
+          height:           p.height_cm ? `${p.height_cm}` : '',
+          weight:           p.weight_kg ? `${p.weight_kg}` : '',
+          gender:           p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : '',
+          nationality:      p.nationality ?? '',
+          playingLevel:     p.league_level ?? '',
+          performanceLevel: p.skill_level  ?? '',
+        })
+        immutableRef.current = {
+          primaryPosition: p.primary_position  ?? '',
+          photoUrl:        p.profile_photo_url ?? '',
+          reelUrl:         p.highlight_reel_url ?? '',
+        }
+      } else {
+        const s = devRole === 'scout_subscribed' ? DEMO_SCOUT_PRO_PROFILE : DEMO_SCOUT_FREE_PROFILE
+        setForm(prev => ({
+          ...prev,
+          firstName:   s.first_name,
+          lastName:    s.last_name,
+          nationality: '',
+        }))
+      }
+      setLoading(false)
+      return
+    }
+
     if (!userId) return
     ;(async () => {
       const table = isPlayer ? 'player_profiles' : 'scout_profiles'
@@ -243,7 +277,7 @@ export default function EditProfileScreen() {
       }
       setLoading(false)
     })()
-  }, [userId, isPlayer])
+  }, [userId, isPlayer, isDemoMode])
 
   function set(field: keyof FormState, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -262,6 +296,11 @@ export default function EditProfileScreen() {
   }
 
   async function handleSave() {
+    // In demo mode, skip DB write and just go back
+    if (isDemoMode) {
+      router.back()
+      return
+    }
     if (!userId) return
     setSaving(true)
     setError(null)
@@ -649,7 +688,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
     borderStyle: 'dashed',
     borderRadius: 10,
-    backgroundColor: '#151515',
+    backgroundColor: '#1A1A1A',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,

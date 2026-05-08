@@ -36,3 +36,4 @@ yarn-error.log*
 # Next.js (legacy — kept for reference only)
 .next/
 out/
+.claude/

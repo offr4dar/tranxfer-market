@@ -3,26 +3,25 @@ import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native'
 interface Props {
   label: string
   onPress: () => void
-  variant?: 'primary' | 'outline'
+  variant?: 'primary' | 'secondary' | 'outline'
   flex?: number
   style?: ViewStyle
 }
 
 export default function Button({ label, onPress, variant = 'primary', flex, style }: Props) {
+  const btnStyle = variant === 'primary' ? styles.primary
+    : variant === 'secondary' ? styles.secondary
+    : styles.outline
+  const txtStyle = variant === 'primary' ? styles.primaryText
+    : variant === 'secondary' ? styles.secondaryText
+    : styles.outlineText
   return (
     <TouchableOpacity
-      style={[
-        styles.base,
-        variant === 'primary' ? styles.primary : styles.outline,
-        flex !== undefined && { flex },
-        style,
-      ]}
+      style={[styles.base, btnStyle, flex !== undefined && { flex }, style]}
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <Text style={variant === 'primary' ? styles.primaryText : styles.outlineText}>
-        {label}
-      </Text>
+      <Text style={txtStyle}>{label}</Text>
     </TouchableOpacity>
   )
 }
@@ -35,6 +34,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  // primary — brand green fill
   primary: {
     backgroundColor: '#00FF87',
   },
@@ -46,6 +46,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
+  // secondary — white fill
+  secondary: {
+    backgroundColor: '#ffffff',
+  },
+  secondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.28,
+    textTransform: 'uppercase',
+  },
+
+  // outline — transparent + white border
   outline: {
     backgroundColor: 'rgba(0,0,0,0.31)',
     borderWidth: 2,

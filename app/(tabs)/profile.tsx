@@ -10,12 +10,13 @@ import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
-import ProfileInsightsChart from '@/components/ProfileInsightsChart'
+import ScoutInterestChart, { ChartDataPoint } from '@/components/ScoutInterestChart'
+import { fetchScoutInterest, ScoutInterestResult } from '@/lib/queries/scout-interest'
 import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
-import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
+import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_ENDORSEMENTS } from '@/lib/demoData'
 
 function EditIcon() {
   return (
@@ -77,13 +78,7 @@ export default function ProfileScreen() {
   const perfLogRotate  = useRef(new Animated.Value(0)).current
   const [totalLogs, setTotalLogs] = useState(0)
   const [weekLogs,  setWeekLogs]  = useState(0)
-  const [insights, setInsights] = useState<{
-    viewPoints: number[]
-    shortlistPoints: number[]
-    dayLabels: string[]
-    totalViews: number
-    totalShortlists: number
-  } | null>(null)
+  const [interestData, setInterestData] = useState<ScoutInterestResult | null>(null)
   const { devRole, isDemoMode } = useDevRole()
   const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
 
@@ -93,13 +88,25 @@ export default function ProfileScreen() {
       if (devRole === 'player') {
         setRole('player')
         setData(DEMO_PLAYER_PROFILE as any)
-        setInsights({
-          viewPoints:       [2, 5, 3, 8, 4, 6, 1],
-          shortlistPoints:  [0, 1, 0, 2, 1, 1, 0],
-          dayLabels:        ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-          totalViews:       29,
-          totalShortlists:  5,
-        })
+        // Mock 30-day data from spec
+        const mock30: ChartDataPoint[] = [
+          { date: '1 Apr',  views: 3,  shortlists: 0 },
+          { date: '3 Apr',  views: 5,  shortlists: 1 },
+          { date: '5 Apr',  views: 4,  shortlists: 0 },
+          { date: '7 Apr',  views: 8,  shortlists: 1 },
+          { date: '9 Apr',  views: 6,  shortlists: 1 },
+          { date: '11 Apr', views: 11, shortlists: 2 },
+          { date: '13 Apr', views: 7,  shortlists: 1 },
+          { date: '15 Apr', views: 9,  shortlists: 1 },
+          { date: '17 Apr', views: 13, shortlists: 3 },
+          { date: '19 Apr', views: 10, shortlists: 1 },
+          { date: '21 Apr', views: 8,  shortlists: 2 },
+          { date: '23 Apr', views: 14, shortlists: 3 },
+          { date: '25 Apr', views: 12, shortlists: 2 },
+          { date: '27 Apr', views: 16, shortlists: 4 },
+          { date: '29 Apr', views: 11, shortlists: 2 },
+        ]
+        setInterestData({ data30: mock30, data7: mock30.slice(-7) })
         setTotalLogs(12)
         setWeekLogs(3)
       } else {
@@ -146,53 +153,24 @@ export default function ProfileScreen() {
       setData(pData)
       setLoading(false)
 
-      // Build Mon–Sun buckets for the current ISO week
-      const today = new Date()
-      const dow = today.getDay()
-      const toMonday = dow === 0 ? -6 : 1 - dow
-      const monday = new Date(today)
+      // Mon of the current week — used for perf-log weekly count only
+      const today     = new Date()
+      const dow       = today.getDay()
+      const toMonday  = dow === 0 ? -6 : 1 - dow
+      const monday    = new Date(today)
       monday.setDate(today.getDate() + toMonday)
+      const since = monday.toISOString().split('T')[0] + 'T00:00:00'
 
-      const days: string[] = []
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday)
-        d.setDate(monday.getDate() + i)
-        days.push(d.toISOString().split('T')[0])
-      }
-      const since = days[0] + 'T00:00:00'
-
-      const [
-        { data: viewRows },
-        { data: shortRows },
-        { count: totalLogCount },
-        { count: weekLogCount },
-      ] = await Promise.all([
-        supabase.from('profile_views').select('viewed_at').eq('player_id', userId).gte('viewed_at', since),
-        supabase.from('watchlist_items').select('created_at').eq('player_id', pData.id).gte('created_at', since),
-        supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('match_date', since),
-      ])
+      const [{ count: totalLogCount }, { count: weekLogCount }, interestResult] =
+        await Promise.all([
+          supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+          supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('match_date', since),
+          fetchScoutInterest(pData.id),
+        ])
 
       setTotalLogs(totalLogCount ?? 0)
       setWeekLogs(weekLogCount ?? 0)
-
-      const viewMap: Record<string, number>  = {}
-      const shortMap: Record<string, number> = {}
-      days.forEach(d => { viewMap[d] = 0; shortMap[d] = 0 })
-      viewRows?.forEach(r  => { const d = r.viewed_at.split('T')[0];  if (d in viewMap)  viewMap[d]++ })
-      shortRows?.forEach(r => { const d = (r.created_at as string).split('T')[0]; if (d in shortMap) shortMap[d]++ })
-
-      const viewPoints      = days.map(d => viewMap[d])
-      const shortlistPoints = days.map(d => shortMap[d])
-      const dayLabels       = days.map(d => new Date(d).toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3))
-
-      setInsights({
-        viewPoints,
-        shortlistPoints,
-        dayLabels,
-        totalViews:      viewPoints.reduce((a, b) => a + b, 0),
-        totalShortlists: shortlistPoints.reduce((a, b) => a + b, 0),
-      })
+      setInterestData(interestResult)
     } else if (aData) {
       setRole('scout')
       setData(aData as unknown as PlayerData)
@@ -245,6 +223,25 @@ export default function ProfileScreen() {
 
       {/* ── Avatar hero ── */}
       <View style={styles.hero}>
+        {/* Name block — fills available space */}
+        <View style={styles.heroNameBlock}>
+          <Text style={styles.heroFirstName}>{data.first_name}</Text>
+          <Text style={styles.heroLastName}>{data.last_name}</Text>
+
+          {/* Tier badge for scout in demo mode */}
+          {isDemoMode && activeRole === 'scout' && (
+            <View style={[
+              styles.tierBadge,
+              devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
+            ]}>
+              <Text style={styles.tierBadgeText}>
+                {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Avatar — floats right */}
         <View style={styles.avatarWrap}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -257,20 +254,6 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
-        <Text style={styles.heroFirstName}>{data.first_name}</Text>
-        <Text style={styles.heroLastName}>{data.last_name}</Text>
-
-        {/* Tier badge for scout in demo mode */}
-        {isDemoMode && activeRole === 'scout' && (
-          <View style={[
-            styles.tierBadge,
-            devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
-          ]}>
-            <Text style={styles.tierBadgeText}>
-              {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* ── Scout info card (demo mode only) ── */}
@@ -393,9 +376,9 @@ export default function ProfileScreen() {
               </Svg>
             </Animated.View>
           </TouchableOpacity>
-          {insightsOpen && insights && (
+          {insightsOpen && interestData && (
             <View style={styles.insightContent}>
-              <ProfileInsightsChart {...insights} />
+              <ScoutInterestChart data30={interestData.data30} data7={interestData.data7} />
             </View>
           )}
         </View>
@@ -451,15 +434,29 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Endorsements */}
-                <View style={[styles.detailsCard, styles.detailsEndorseCard]}>
-                  <View style={{ flex: 1, gap: 8 }}>
-                    <Text style={styles.detailsCardLabel}>Endorsements</Text>
-                    <Text style={styles.detailsCardValue}>0</Text>
-                  </View>
-                  <TouchableOpacity style={styles.endorseBtn} activeOpacity={0.85}>
-                    <Text style={styles.endorseBtnText}>Request Endorsement</Text>
-                  </TouchableOpacity>
-                </View>
+                {(() => {
+                  const uniqueEndorsers = isDemoMode
+                    ? new Set(DEMO_ENDORSEMENTS.map(e => e.scout_user_id)).size
+                    : 0  // TODO: fetch from DB
+                  return (
+                    <View style={[styles.detailsCard, styles.detailsEndorseCard]}>
+                      <Text style={styles.detailsCardLabel}>Scout Endorsements</Text>
+                      <Text style={styles.detailsCardValue}>{uniqueEndorsers}</Text>
+                      <View style={styles.btn_row_sml}>
+                        <TouchableOpacity
+                          style={[styles.btn_sml, styles.btn_outline_sml]}
+                          activeOpacity={0.8}
+                          onPress={() => router.push('/endorsements' as any)}
+                        >
+                          <Text style={styles.btn_text_sml}>View Endorsements</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.btn_sml, styles.btn_secondary_sml]} activeOpacity={0.85}>
+                          <Text style={[styles.btn_text_sml, { color: '#000000' }]}>Request</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )
+                })()}
 
                 {/* Attribute list */}
                 {(() => {
@@ -598,12 +595,12 @@ export default function ProfileScreen() {
               </View>
 
               {/* CTA buttons */}
-              <View style={styles.perfCtaRow}>
-                <TouchableOpacity style={[styles.perfCtaBtn, styles.perfCtaOutline]} activeOpacity={0.8} onPress={() => router.push('/performance-log' as any)}>
-                  <Text style={[styles.perfCtaText, { color: '#ffffff' }]}>View Entries</Text>
+              <View style={styles.btn_row}>
+                <TouchableOpacity style={[styles.btn, styles.btn_outline]} activeOpacity={0.8} onPress={() => router.push('/performance-log' as any)}>
+                  <Text style={[styles.btn_text, { color: '#ffffff' }]}>View Entries</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.perfCtaBtn, styles.perfCtaSolid]} activeOpacity={0.8} onPress={() => setLogSheetOpen(true)}>
-                  <Text style={[styles.perfCtaText, { color: '#000000' }]}>+ Add Entry</Text>
+                <TouchableOpacity style={[styles.btn, styles.btn_secondary]} activeOpacity={0.8} onPress={() => setLogSheetOpen(true)}>
+                  <Text style={[styles.btn_text, { color: '#000000' }]}>+ Add Entry</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -670,18 +667,24 @@ const styles = StyleSheet.create({
   },
 
   hero: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 4,
+    gap: Spacing.md,
+  },
+  heroNameBlock: {
+    flex: 1,
+    gap: 2,
+    paddingTop: 3,
   },
   avatarWrap: {
     width: 100,
     height: 100,
-    marginBottom: Spacing.md,
+    flexShrink: 0,
   },
   avatar: {
     width: 100, height: 100, borderRadius: 50,
@@ -703,10 +706,11 @@ const styles = StyleSheet.create({
   },
   heroLastName: {
     fontFamily: 'Anton_400Regular',
-    fontSize: 53,
+    fontSize: 52,
     color: Colors.text,
     textTransform: 'uppercase',
-    lineHeight: 65,
+    letterSpacing: 1,
+    lineHeight: 64,
   },
   tierBadge: {
     marginTop: 8,
@@ -735,7 +739,7 @@ const styles = StyleSheet.create({
   scoutInfoCard: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
-    backgroundColor: '#111111',
+    backgroundColor: '#1A1A1A',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -846,24 +850,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   detailsEndorseCard: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    height: undefined,
+    gap: 12,
+  },
+  endorseBtnRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 82,
-  },
-  endorseBtn: {
-    height: 32,
-    backgroundColor: '#ffffff',
-    borderRadius: 100,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endorseBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#000000',
-    textTransform: 'uppercase',
-    letterSpacing: 0.22,
+    gap: 8,
+    alignSelf: 'stretch',
   },
   attrWrap: {
     paddingVertical: Spacing.md,
@@ -1015,28 +1010,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.md,
   },
-  perfCtaBtn: {
+  // ── Large button variants ───────────────────────────────────────────
+  btn_row: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  btn: {
     flex: 1,
     height: 46,
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  perfCtaOutline: {
+  btn_outline: {
     borderWidth: 2,
     borderColor: '#ffffff',
     backgroundColor: 'transparent',
   },
-  perfCtaSolid: {
+  btn_secondary: {
     backgroundColor: '#ffffff',
   },
-  perfCtaText: {
+  btn_text: {
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 
+  // ── Small button variants (_sml suffix) ─────────────────────────────
+  btn_row_sml: {
+    flexDirection: 'row',
+    gap: 8,
+    alignSelf: 'stretch',
+  },
+  btn_sml: {
+    flex: 1,
+    height: 32,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  btn_outline_sml: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+  },
+  btn_secondary_sml: {
+    backgroundColor: '#ffffff',
+  },
+  btn_text_sml: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   signOut: {
     margin: Spacing.lg, marginTop: Spacing.xl, height: 52,
     borderRadius: 16, borderWidth: 1, borderColor: Colors.border,

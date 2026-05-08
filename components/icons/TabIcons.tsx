@@ -127,14 +127,14 @@ export function SkillFeedIcon({ color, size = 20 }: IconProps) {
   )
 }
 
-// ─── Watchlist — bookmark (24×24) ────────────────────────────────────────────
+// ─── Tracker — pencil + lines (192×192) ────────────────────────────────────
 export function WatchlistIcon({ color, size = 20 }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 192 192" fill="none">
       <Path
-        d="M5 3H19V21L12 16L5 21V3Z"
+        d="M55 139.591 61.173 171l26.432-17.816L136 35.594 103.394 22 55 139.591ZM22 42h72m40 0h36M22 78h57m41 0h50M22 114h41m41 0h66M22 150h34m34 0h32"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={12}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -32,7 +33,7 @@ const ROLES: {
     emoji: '🔍',
     accent: '#C49B1E',
     description: 'Explore the feed with limited access. Player details are redacted until you upgrade.',
-    tags: ['Feed', 'Redacted Profiles', 'Watchlist'],
+    tags: ['Feed', 'Redacted Profiles', 'Tracker'],
   },
   {
     role: 'scout_subscribed',
@@ -50,7 +51,10 @@ export default function DemoSelectScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { isSignedIn } = useAuth()
-  const { enterDemo } = useDevRole()
+  const { enterDemo, exitDemo } = useDevRole()
+
+  // Clear any active demo session the moment we land here
+  useEffect(() => { exitDemo() }, [])
 
   const handlePickRole = (role: DevRole) => {
     enterDemo(role)

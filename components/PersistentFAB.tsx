@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
@@ -7,15 +7,15 @@ import Svg, { Path } from 'react-native-svg'
 import { useDevRole } from '@/lib/devRole'
 import { supabase } from '@/lib/supabase'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
+import { Colors } from '@/constants/theme'
 
 export default function PersistentFAB() {
   const insets      = useSafeAreaInsets()
   const router      = useRouter()
   const { userId }  = useAuth()
-  const { devRole } = useDevRole()
+  const { devRole, isDemoMode } = useDevRole()
 
   const [isScout,      setIsScout]      = useState(false)
-  const [isSubscribed, setIsSubscribed] = useState(false)
   const [logSheetOpen, setLogSheetOpen] = useState(false)
 
   useEffect(() => {
@@ -26,28 +26,26 @@ export default function PersistentFAB() {
         .select('subscription_tier')
         .eq('user_id', userId)
         .maybeSingle()
-      if (data) {
-        setIsScout(true)
-        setIsSubscribed(data.subscription_tier !== 'free' && data.subscription_tier != null)
-      }
+      if (data) setIsScout(true)
     })()
   }, [userId])
 
-  const resolvedIsScout      = __DEV__ ? devRole !== 'player'           : isScout
-  const resolvedIsSubscribed = __DEV__ ? devRole === 'scout_subscribed' : isSubscribed
+  const resolvedIsScout = (__DEV__ || isDemoMode) ? devRole !== 'player' : isScout
 
-  function handleShortlist() {
-    if (resolvedIsSubscribed) {
-      router.push('/(tabs)/shortlist' as any)
-    } else {
-      Alert.alert(
-        'Pro feature',
-        'Shortlisting players is available on a paid subscription. Upgrade to unlock full access.',
-        [{ text: 'OK' }],
-      )
-    }
+  // ── Demo mode: show a single "Exit Demo" button ─────────────────────────────
+  if (isDemoMode) {
+    return (
+      <TouchableOpacity
+        style={[styles.exitBtn, { bottom: 100 + insets.bottom }]}
+        onPress={() => router.replace('/demo-select' as any)}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.exitBtnText}>EXIT DEMO</Text>
+      </TouchableOpacity>
+    )
   }
 
+  // ── Real mode: player gets log FAB, scout gets shortlist FAB ─────────────────
   return (
     <>
       <View style={[styles.wrapper, { bottom: 100 + insets.bottom }]}>
@@ -75,7 +73,7 @@ export default function PersistentFAB() {
         {resolvedIsScout && (
           <TouchableOpacity
             style={styles.btn}
-            onPress={handleShortlist}
+            onPress={() => router.push('/(tabs)/shortlist' as any)}
             activeOpacity={0.85}
           >
             <Svg width={20} height={24} viewBox="0 0 20 24" fill="none">
@@ -116,5 +114,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // ── Exit Demo button ──────────────────────────────────────────────────────
+  exitBtn: {
+    position: 'absolute',
+    right: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    borderWidth: 1.5,
+    borderColor: Colors.brand,
+  },
+  exitBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Colors.brand,
+    letterSpacing: 1,
   },
 })

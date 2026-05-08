@@ -55,9 +55,9 @@ export default function ProfileInsightsChart({
   let conversionText: string
   if (totalViews > 0 && totalShortlists > 0) {
     const ratio = Math.round(totalViews / totalShortlists)
-    conversionText = `1 in ${ratio} scouts who viewed you shortlisted you`
+    conversionText = `1 in ${ratio} scouts who viewed you added you to their tracker`
   } else if (totalViews > 0) {
-    conversionText = 'No shortlists yet this week'
+    conversionText = 'No tracking activity yet this week'
   } else {
     conversionText = 'No activity recorded this week'
   }
@@ -73,7 +73,7 @@ export default function ProfileInsightsChart({
         <Text style={styles.divider}>·</Text>
         <Text style={styles.totalShortlists}>
           {totalShortlists}
-          <Text style={styles.totalSuffix}> shortlists</Text>
+          <Text style={styles.totalSuffix}> tracking</Text>
         </Text>
       </View>
 
@@ -145,7 +145,7 @@ export default function ProfileInsightsChart({
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: SHORT_COLOR }]} />
-          <Text style={styles.legendLabel}>Shortlists</Text>
+          <Text style={styles.legendLabel}>Tracking</Text>
         </View>
       </View>
     </View>

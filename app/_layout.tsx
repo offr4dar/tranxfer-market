@@ -113,6 +113,7 @@ export default function RootLayout() {
             <Stack.Screen name="edit-profile"    options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="player/[id]"              options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="player/performance/[id]"  options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="upgrade"                  options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           </Stack>
         </View>
       </DevRoleProvider>

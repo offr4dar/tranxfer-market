@@ -7,7 +7,8 @@ interface Props {
   performanceLevel: string  // e.g. "medium skill level" → bolded in the description
 }
 
-const DESC_PREFIX = 'This player has described themselves as '
+
+const DESC_PREFIX = 'This player has described their performance level as '
 
 export default function PlayerLevelCard({ playingLevel, performanceLevel }: Props) {
   return (
@@ -27,7 +28,7 @@ export default function PlayerLevelCard({ playingLevel, performanceLevel }: Prop
       />
 
       <View style={styles.textWrap}>
-        <Text style={styles.title}>{playingLevel}{'\n'}Level</Text>
+        <Text style={styles.title}>{'Playing Level:\n'}{playingLevel}</Text>
         <Text style={styles.desc}>
           {DESC_PREFIX}
           <Text style={styles.descBold}>{performanceLevel}</Text>
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#000000',
     textTransform: 'uppercase',
-    lineHeight: 38,
+    lineHeight: 34,
   },
   desc: {
     fontSize: 14,

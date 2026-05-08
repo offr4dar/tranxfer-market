@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, Animated, Pressable,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
@@ -12,7 +12,7 @@ import { PlayerProfile } from '@/types'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
-import { DEMO_FEED_PLAYERS } from '@/lib/demoData'
+import { DEMO_FEED_PLAYERS, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_ENDORSEMENTS } from '@/lib/demoData'
 
 const MASK = '*****'
 
@@ -49,9 +49,15 @@ function StatRow({ label, value, visible = false }: { label: string; value: stri
 // ─── FAB (floating action button) ─────────────────────────────────────────────
 function FAB({ icon, onPress }: { icon: React.ReactNode; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.85}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.fab,
+        pressed && styles.fabPressed,
+      ]}
+      onPress={onPress}
+    >
       {icon}
-    </TouchableOpacity>
+    </Pressable>
   )
 }
 
@@ -92,6 +98,19 @@ export default function PlayerProfileScoutView() {
   const { isDemoMode } = useDevRole()
 
   const resolvedIsSubscribed = (isDemoMode || __DEV__) ? devRole === 'scout_subscribed' : isSubscribed
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const toastAnim   = useRef(new Animated.Value(0)).current  // 0=hidden, 1=visible
+  const [toastMsg, setToastMsg] = useState('')
+
+  const showToast = (message: string) => {
+    setToastMsg(message)
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start()
+  }
 
   useEffect(() => {
     if (devRole === 'player' && !isDemoMode) {
@@ -142,7 +161,9 @@ export default function PlayerProfileScoutView() {
   const toggleShortlist = async () => {
     // In demo mode, just toggle local state — no DB writes
     if (isDemoMode) {
-      setShortlisted(v => !v)
+      const next = !shortlisted
+      setShortlisted(next)
+      showToast(next ? '\u2713  Added to tracker' : 'Removed from tracker')
       return
     }
     if (!userId || !id || toggling) return
@@ -150,9 +171,11 @@ export default function PlayerProfileScoutView() {
     if (shortlisted) {
       await supabase.from('watchlist_items').delete().eq('scout_id', userId).eq('player_id', id)
       setShortlisted(false)
+      showToast('Removed from tracker')
     } else {
       await supabase.from('watchlist_items').insert({ scout_id: userId, player_id: id })
       setShortlisted(true)
+      showToast('\u2713  Added to tracker')
     }
     setToggling(false)
   }
@@ -211,12 +234,38 @@ export default function PlayerProfileScoutView() {
         </TouchableOpacity>
       </View>
 
+      {/* ── Top toast ── */}
+      <Animated.View
+        style={[
+          styles.toast,
+          { top: insets.top + 60 },
+          {
+            opacity: toastAnim,
+            transform: [{
+              translateY: toastAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-12, 0],
+              }),
+            }],
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <Text style={styles.toastText}>{toastMsg}</Text>
+      </Animated.View>
+
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Avatar + Name ── */}
         <View style={styles.heroSection}>
+          {/* Name block — fills available space */}
+          <View style={styles.heroNameBlock}>
+            <Text style={styles.firstName}>{maskedFirst}</Text>
+            <Text style={styles.lastName}>{maskedLast}</Text>
+          </View>
+          {/* Avatar — floats right */}
           <View style={[styles.avatarWrap, !resolvedIsSubscribed && styles.avatarRedacted]}>
             {(player.profile_photo_url && resolvedIsSubscribed) ? (
               <Image source={{ uri: player.profile_photo_url }} style={styles.avatarImg} />
@@ -233,8 +282,6 @@ export default function PlayerProfileScoutView() {
               </View>
             )}
           </View>
-          <Text style={styles.firstName}>{maskedFirst}</Text>
-          <Text style={styles.lastName}>{maskedLast}</Text>
         </View>
 
         {/* ── Age / Nationality ── */}
@@ -245,6 +292,35 @@ export default function PlayerProfileScoutView() {
             <Text style={styles.chipValue}>{resolvedIsSubscribed ? (player.nationality ?? 'UNKNOWN') : MASK}</Text>
           </View>
         </View>
+
+        {/* ── Endorsements ── */}
+        {(() => {
+          const uniqueEndorsers = isDemoMode
+            ? new Set(DEMO_ENDORSEMENTS.map(e => e.scout_user_id)).size
+            : 0  // TODO: fetch from DB
+          return (
+            <View style={styles.endorseCard}>
+              <Text style={styles.endorseCardLabel}>Scout Endorsements</Text>
+              <Text style={styles.endorseCardValue}>{uniqueEndorsers}</Text>
+              <View style={styles.btn_row_sml}>
+                <TouchableOpacity
+                  style={[styles.btn_sml, styles.btn_outline_sml]}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/endorsements' as any)}
+                >
+                  <Text style={styles.btn_text_sml} numberOfLines={1}>View Endorsements</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn_sml, styles.btn_secondary_sml]}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/endorse' as any)}
+                >
+                  <Text style={[styles.btn_text_sml, { color: '#000000' }]} numberOfLines={1}>Endorse</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        })()}
 
         {/* ── Attributes strip ── */}
         <View style={styles.attributeBlock}>
@@ -267,18 +343,17 @@ export default function PlayerProfileScoutView() {
           <View style={styles.levelText}>
             <Text style={styles.levelHeading}>
               {resolvedIsSubscribed
-                ? (player.league_level ?? 'NON-LEAGUE').replace(/_/g, ' ').toUpperCase() + '\nLEVEL'
-                : '*****\nLEVEL'}
+                ? 'Playing Level:\n' + (player.league_level ?? 'Non-League').replace(/_/g, ' ')
+                : 'Playing Level:\n*****'}
             </Text>
             <Text style={styles.levelDesc}>
-              {'This player has described themselves as '}
+              {'This player has described their performance level as '}
               <Text style={styles.levelDescBold}>
                 {resolvedIsSubscribed ? (player.skill_level ?? 'mid-level skill') : '*****'}
               </Text>
             </Text>
           </View>
         </View>
-
         {/* ── Video ── */}
         <SectionTitle label="VIDEO" />
         <View style={styles.videoBox}>
@@ -320,14 +395,16 @@ export default function PlayerProfileScoutView() {
         </View>
 
         <View style={styles.viewEntriesWrap}>
-          <TouchableOpacity 
-            style={[styles.viewEntriesBtn, !resolvedIsSubscribed && styles.viewEntriesBtnDisabled]}
-            disabled={!resolvedIsSubscribed}
-            onPress={() => router.push(`/player/performance/${player.id}` as any)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.viewEntriesBtnText}>VIEW ENTRIES</Text>
-          </TouchableOpacity>
+          <View style={styles.btn_row}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btn_outline, !resolvedIsSubscribed && styles.btn_outline_disabled]}
+              disabled={!resolvedIsSubscribed}
+              onPress={() => router.push(`/player/performance/${player.id}` as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.btn_text, { color: '#ffffff' }]}>View Entries</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -339,11 +416,11 @@ export default function PlayerProfileScoutView() {
             messaging
               ? <ActivityIndicator color="#000" size="small" />
               : (
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                   <Path
-                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    d="M8 8H16M8 12H13M7 16V21L12 16H20V4H4V16H7Z"
                     stroke="#000"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -357,14 +434,16 @@ export default function PlayerProfileScoutView() {
             toggling
               ? <ActivityIndicator color="#000" size="small" />
               : (
-                <Svg width={20} height={22} viewBox="0 0 20 24" fill="none">
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                   <Path
-                    d="M3 3h14a1 1 0 0 1 1 1v16l-8-4-8 4V4a1 1 0 0 1 1-1z"
+                    d={shortlisted
+                      ? 'M5 12H19'           // minus
+                      : 'M12 5V19M5 12H19'  // plus
+                    }
                     stroke="#000"
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    fill={shortlisted ? '#000' : 'none'}
                   />
                 </Svg>
               )
@@ -379,6 +458,31 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFound: { color: Colors.textSecondary, fontSize: 16 },
 
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  toast: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  toastText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.brand,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+
   header: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
@@ -390,18 +494,25 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    gap: 0,
+    gap: Spacing.md,
   },
 
   // ── Hero ──────────────────────────────────────────────────────────────────
   heroSection: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  heroNameBlock: {
+    flex: 1,
+    gap: 2,
+    paddingTop: 3,
   },
   avatarWrap: {
     width: 100,
     height: 100,
-    marginBottom: 12,
+    flexShrink: 0,
   },
   avatarRedacted: {
     opacity: 0.5,
@@ -450,17 +561,16 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    lineHeight: 60,
+    lineHeight: 64,
   },
 
   // ── Chips ─────────────────────────────────────────────────────────────────
   chipRow: {
     flexDirection: 'row',
     gap: Spacing.md,
-    marginBottom: Spacing.lg,
   },
   chip: {
-    backgroundColor: '#151515',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     padding: 15,
     gap: 8,
@@ -543,7 +653,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#000',
     textTransform: 'uppercase',
-    lineHeight: 32,
+    lineHeight: 34,
   },
   levelDesc: {
     fontSize: 14,
@@ -578,7 +688,7 @@ const styles = StyleSheet.create({
   // ── Video ─────────────────────────────────────────────────────────────────
   videoBox: {
     height: 175,
-    backgroundColor: '#151515',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -622,7 +732,7 @@ const styles = StyleSheet.create({
   },
   logChip: {
     flex: 1,
-    backgroundColor: '#151515',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     padding: 15,
     gap: 8,
@@ -643,24 +753,31 @@ const styles = StyleSheet.create({
   viewEntriesWrap: {
     marginBottom: Spacing.lg,
   },
-  viewEntriesBtn: {
-    height: 52,
+  // ── Large button design system ─────────────────────────────────────────
+  btn_row: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  btn: {
+    flex: 1,
+    height: 46,
     borderRadius: 100,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(0,0,0,0.31)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  viewEntriesBtnDisabled: {
-    opacity: 0.2,
+  btn_outline: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
-  viewEntriesBtnText: {
-    color: Colors.text,
-    fontSize: 11,
+  btn_outline_disabled: {
+    opacity: 0.3,
+  },
+  btn_text: {
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.5,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // ── FABs ─────────────────────────────────────────────────────────────────
@@ -682,5 +799,58 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  fabPressed: {
+    backgroundColor: '#d4d4d4',
+  },
+  // ── Endorsements card ───────────────────────────────────────────────────────
+  endorseCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 15,
+    gap: 12,
+  },
+  endorseCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    opacity: 0.5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  endorseCardValue: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 22,
+    color: '#ffffff',
+    textTransform: 'uppercase',
+  },
+
+  // ── Small button variants (_sml suffix) ────────────────────────────────────
+  btn_row_sml: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  btn_sml: {
+    flex: 1,
+    height: 32,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  btn_outline_sml: {
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    backgroundColor: 'transparent',
+  },
+  btn_secondary_sml: {
+    backgroundColor: '#ffffff',
+  },
+  btn_text_sml: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 })
