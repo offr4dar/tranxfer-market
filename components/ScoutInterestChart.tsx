@@ -20,8 +20,8 @@ interface Props {
 
 // ─── Data colours (not theme — data encoding colours) ────────────────────────
 
-const VIEWS_COLOR      = '#888780'
-const SHORTLIST_COLOR  = '#1D9E75'
+const VIEWS_COLOR = '#888780'
+const SHORTLIST_COLOR = '#1D9E75'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -45,9 +45,9 @@ export default function ScoutInterestChart({ data30, data7 }: Props) {
   const activeData = period === '7' ? data7 : data30
 
   // ── Computed stats ──
-  const totalViews      = activeData.reduce((s, d) => s + d.views, 0)
+  const totalViews = activeData.reduce((s, d) => s + d.views, 0)
   const totalShortlists = activeData.reduce((s, d) => s + d.shortlists, 0)
-  const ratio           = conversionRatio(totalViews, totalShortlists)
+  const ratio = conversionRatio(totalViews, totalShortlists)
 
   // ── Gifted-charts data shape ──
   // Reduce x-axis labels for 30-day view so they don't crowd
@@ -100,15 +100,15 @@ export default function ScoutInterestChart({ data30, data7 }: Props) {
       {/* ── Stat cards ── */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total views</Text>
+          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Total views</Text>
           <Text style={styles.statValue}>{totalViews}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Tracking</Text>
+          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Tracking</Text>
           <Text style={styles.statValue}>{totalShortlists}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Conversion</Text>
+          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Conversion</Text>
           <Text style={styles.statValue}>{pct(totalShortlists, totalViews)}</Text>
         </View>
       </View>

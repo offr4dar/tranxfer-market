@@ -64,20 +64,20 @@ interface PlayerData {
 export default function ProfileScreen() {
   const { userId, signOut } = useAuth()
   const router = useRouter()
-  const [role, setRole]   = useState<Role>(null)
-  const [data, setData]   = useState<PlayerData | null>(null)
+  const [role, setRole] = useState<Role>(null)
+  const [data, setData] = useState<PlayerData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [insightsOpen, setInsightsOpen]       = useState(false)
+  const [insightsOpen, setInsightsOpen] = useState(false)
   const [yourDetailsOpen, setYourDetailsOpen] = useState(false)
-  const [showreelOpen, setShowreelOpen]       = useState(false)
-  const [perfLogOpen, setPerfLogOpen]         = useState(false)
-  const [logSheetOpen, setLogSheetOpen]       = useState(false)
-  const insightRotate  = useRef(new Animated.Value(0)).current
-  const detailsRotate  = useRef(new Animated.Value(0)).current
+  const [showreelOpen, setShowreelOpen] = useState(false)
+  const [perfLogOpen, setPerfLogOpen] = useState(false)
+  const [logSheetOpen, setLogSheetOpen] = useState(false)
+  const insightRotate = useRef(new Animated.Value(0)).current
+  const detailsRotate = useRef(new Animated.Value(0)).current
   const showreelRotate = useRef(new Animated.Value(0)).current
-  const perfLogRotate  = useRef(new Animated.Value(0)).current
+  const perfLogRotate = useRef(new Animated.Value(0)).current
   const [totalLogs, setTotalLogs] = useState(0)
-  const [weekLogs,  setWeekLogs]  = useState(0)
+  const [weekLogs, setWeekLogs] = useState(0)
   const [interestData, setInterestData] = useState<ScoutInterestResult | null>(null)
   const { devRole, isDemoMode } = useDevRole()
   const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
@@ -90,17 +90,17 @@ export default function ProfileScreen() {
         setData(DEMO_PLAYER_PROFILE as any)
         // Mock 30-day data from spec
         const mock30: ChartDataPoint[] = [
-          { date: '1 Apr',  views: 3,  shortlists: 0 },
-          { date: '3 Apr',  views: 5,  shortlists: 1 },
-          { date: '5 Apr',  views: 4,  shortlists: 0 },
-          { date: '7 Apr',  views: 8,  shortlists: 1 },
-          { date: '9 Apr',  views: 6,  shortlists: 1 },
+          { date: '1 Apr', views: 3, shortlists: 0 },
+          { date: '3 Apr', views: 5, shortlists: 1 },
+          { date: '5 Apr', views: 4, shortlists: 0 },
+          { date: '7 Apr', views: 8, shortlists: 1 },
+          { date: '9 Apr', views: 6, shortlists: 1 },
           { date: '11 Apr', views: 11, shortlists: 2 },
-          { date: '13 Apr', views: 7,  shortlists: 1 },
-          { date: '15 Apr', views: 9,  shortlists: 1 },
+          { date: '13 Apr', views: 7, shortlists: 1 },
+          { date: '15 Apr', views: 9, shortlists: 1 },
           { date: '17 Apr', views: 13, shortlists: 3 },
           { date: '19 Apr', views: 10, shortlists: 1 },
-          { date: '21 Apr', views: 8,  shortlists: 2 },
+          { date: '21 Apr', views: 8, shortlists: 2 },
           { date: '23 Apr', views: 14, shortlists: 3 },
           { date: '25 Apr', views: 12, shortlists: 2 },
           { date: '27 Apr', views: 16, shortlists: 4 },
@@ -154,10 +154,10 @@ export default function ProfileScreen() {
       setLoading(false)
 
       // Mon of the current week — used for perf-log weekly count only
-      const today     = new Date()
-      const dow       = today.getDay()
-      const toMonday  = dow === 0 ? -6 : 1 - dow
-      const monday    = new Date(today)
+      const today = new Date()
+      const dow = today.getDay()
+      const toMonday = dow === 0 ? -6 : 1 - dow
+      const monday = new Date(today)
       monday.setDate(today.getDate() + toMonday)
       const since = monday.toISOString().split('T')[0] + 'T00:00:00'
 
@@ -204,422 +204,422 @@ export default function ProfileScreen() {
 
   const initials = [data.first_name?.[0], data.last_name?.[0]].filter(Boolean).join('')
   const player = activeRole === 'player' ? (data as PlayerData) : null
-  const score  = player?.profile_completion_score ?? 0
+  const score = player?.profile_completion_score ?? 0
 
   return (
     <ScreenBackground>
       <ScreenHeader />
       <ScrollView contentContainerStyle={styles.content}>
-      {/* ── Edit / Settings row ── */}
-      <View style={styles.editRow}>
-        <TouchableOpacity style={styles.editBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile' as any)}>
-          <Text style={styles.editLabel}>Edit Profile</Text>
-          <EditIcon />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/settings' as any)} activeOpacity={0.7} hitSlop={10}>
-          <GearIcon />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Avatar hero ── */}
-      <View style={styles.hero}>
-        {/* Name block — fills available space */}
-        <View style={styles.heroNameBlock}>
-          <Text style={styles.heroFirstName}>{data.first_name}</Text>
-          <Text style={styles.heroLastName}>{data.last_name}</Text>
-
-          {/* Tier badge for scout in demo mode */}
-          {isDemoMode && activeRole === 'scout' && (
-            <View style={[
-              styles.tierBadge,
-              devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
-            ]}>
-              <Text style={styles.tierBadgeText}>
-                {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
-              </Text>
-            </View>
-          )}
+        {/* ── Edit / Settings row ── */}
+        <View style={styles.editRow}>
+          <TouchableOpacity style={styles.editBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile' as any)}>
+            <Text style={styles.editLabel}>Edit Profile</Text>
+            <EditIcon />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/settings' as any)} activeOpacity={0.7} hitSlop={10}>
+            <GearIcon />
+          </TouchableOpacity>
         </View>
 
-        {/* Avatar — floats right */}
-        <View style={styles.avatarWrap}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          {data.is_verified && (
-            <View style={styles.verifiedBadge}>
-              <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
-                <Path d="M2.5 7l3 3 6-6" stroke="#000" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </View>
-          )}
-        </View>
-      </View>
+        {/* ── Avatar hero ── */}
+        <View style={styles.hero}>
+          {/* Name block — fills available space */}
+          <View style={styles.heroNameBlock}>
+            <Text style={styles.heroFirstName}>{data.first_name}</Text>
+            <Text style={styles.heroLastName}>{data.last_name}</Text>
 
-      {/* ── Scout info card (demo mode only) ── */}
-      {isDemoMode && activeRole === 'scout' && (() => {
-        const scout = devRole === 'scout_subscribed'
-          ? DEMO_SCOUT_PRO_PROFILE
-          : DEMO_SCOUT_FREE_PROFILE
-        return (
-          <View style={styles.scoutInfoCard}>
-            {/* Type + org */}
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>Scout Type</Text>
-              <Text style={styles.scoutInfoValue}>
-                {scout.scout_type === 'club_scout' ? 'Club Scout' : 'Freelance Scout'}
-                {(scout as any).affiliated_club ? ` · ${(scout as any).affiliated_club}` : ''}
-              </Text>
-            </View>
-            <View style={styles.scoutInfoDivider} />
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>Organisation</Text>
-              <Text style={styles.scoutInfoValue}>{scout.organisation_name}</Text>
-            </View>
-            <View style={styles.scoutInfoDivider} />
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>Experience</Text>
-              <Text style={styles.scoutInfoValue}>{scout.years_experience} years</Text>
-            </View>
-            <View style={styles.scoutInfoDivider} />
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>Regions</Text>
-              <Text style={styles.scoutInfoValue}>{scout.regions_covered.join(', ')}</Text>
-            </View>
-            <View style={styles.scoutInfoDivider} />
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>Specialisms</Text>
-              <Text style={styles.scoutInfoValue}>{scout.specialisms.join(', ')}</Text>
-            </View>
-            <View style={styles.scoutInfoDivider} />
-            <View style={styles.scoutInfoRow}>
-              <Text style={styles.scoutInfoLabel}>DBS Verified</Text>
-              <Text style={[styles.scoutInfoValue, { color: Colors.brand }]}>
-                {scout.clearance_check ? '✓  Cleared' : 'Pending'}
-              </Text>
-            </View>
-
-            {/* Upgrade CTA for free scouts */}
-            {devRole === 'scout_free' && (
-              <TouchableOpacity style={styles.upgradeBtn} activeOpacity={0.85}>
-                <Text style={styles.upgradeBtnText}>Upgrade to Scout Pro</Text>
-              </TouchableOpacity>
+            {/* Tier badge for scout in demo mode */}
+            {isDemoMode && activeRole === 'scout' && (
+              <View style={[
+                styles.tierBadge,
+                devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
+              ]}>
+                <Text style={styles.tierBadgeText}>
+                  {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
+                </Text>
+              </View>
             )}
           </View>
-        )
-      })()}
 
-      {/* ── Profile completion (players only) ── */}
-      {player && (
-        <View style={styles.section}>
-          <View style={styles.profileScoreRow}>
-            <View style={styles.ringWrap}>
-              <Svg width={78} height={78}>
-                <G transform="rotate(-90, 39, 39)">
-                  <Circle
-                    cx={39} cy={39} r={RING_R}
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeWidth={8}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={39} cy={39} r={RING_R}
-                    stroke={Colors.brand}
-                    strokeWidth={8}
-                    fill="none"
-                    strokeDasharray={RING_CIRCUMFERENCE}
-                    strokeDashoffset={RING_CIRCUMFERENCE * (1 - score / 100)}
-                    strokeLinecap="round"
-                  />
-                </G>
-              </Svg>
-              <View style={styles.ringLabel}>
-                <Text style={styles.ringScore}>{score}</Text>
+          {/* Avatar — floats right */}
+          <View style={styles.avatarWrap}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+            {data.is_verified && (
+              <View style={styles.verifiedBadge}>
+                <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                  <Path d="M2.5 7l3 3 6-6" stroke="#000" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
               </View>
-            </View>
-            <View style={styles.scoreTextCol}>
-              <Text style={styles.profileScoreTitle}>Profile Score</Text>
-              <Text style={styles.profileScoreDesc}>
-                Complete your profile to help scouts find you easier
-              </Text>
-            </View>
+            )}
           </View>
         </View>
-      )}
 
-      {/* ── Profile Insights (players only) ── */}
-      {player && (
-        <View style={styles.insightBlock}>
-          <TouchableOpacity
-            style={styles.insightHeader}
-            onPress={() => {
-              const toValue = insightsOpen ? 0 : 1
-              Animated.timing(insightRotate, {
-                toValue,
-                duration: 200,
-                useNativeDriver: true,
-              }).start()
-              setInsightsOpen(v => !v)
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.insightTitle}>Profile Insights</Text>
-            <View style={styles.insightDivider} />
-            <Animated.View style={{ transform: [{ rotate: insightRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                <Path
-                  d="M10.5 1V20M1 10.5H20"
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              </Svg>
-            </Animated.View>
-          </TouchableOpacity>
-          {insightsOpen && interestData && (
-            <View style={styles.insightContent}>
-              <ScoutInterestChart data30={interestData.data30} data7={interestData.data7} />
+        {/* ── Scout info card (demo mode only) ── */}
+        {isDemoMode && activeRole === 'scout' && (() => {
+          const scout = devRole === 'scout_subscribed'
+            ? DEMO_SCOUT_PRO_PROFILE
+            : DEMO_SCOUT_FREE_PROFILE
+          return (
+            <View style={styles.scoutInfoCard}>
+              {/* Type + org */}
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>Scout Type</Text>
+                <Text style={styles.scoutInfoValue}>
+                  {scout.scout_type === 'club_scout' ? 'Club Scout' : 'Freelance Scout'}
+                  {(scout as any).affiliated_club ? ` · ${(scout as any).affiliated_club}` : ''}
+                </Text>
+              </View>
+              <View style={styles.scoutInfoDivider} />
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>Organisation</Text>
+                <Text style={styles.scoutInfoValue}>{scout.organisation_name}</Text>
+              </View>
+              <View style={styles.scoutInfoDivider} />
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>Experience</Text>
+                <Text style={styles.scoutInfoValue}>{scout.years_experience} years</Text>
+              </View>
+              <View style={styles.scoutInfoDivider} />
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>Regions</Text>
+                <Text style={styles.scoutInfoValue}>{scout.regions_covered.join(', ')}</Text>
+              </View>
+              <View style={styles.scoutInfoDivider} />
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>Specialisms</Text>
+                <Text style={styles.scoutInfoValue}>{scout.specialisms.join(', ')}</Text>
+              </View>
+              <View style={styles.scoutInfoDivider} />
+              <View style={styles.scoutInfoRow}>
+                <Text style={styles.scoutInfoLabel}>DBS Verified</Text>
+                <Text style={[styles.scoutInfoValue, { color: Colors.brand }]}>
+                  {scout.clearance_check ? '✓  Cleared' : 'Pending'}
+                </Text>
+              </View>
+
+              {/* Upgrade CTA for free scouts */}
+              {devRole === 'scout_free' && (
+                <TouchableOpacity style={styles.upgradeBtn} activeOpacity={0.85}>
+                  <Text style={styles.upgradeBtnText}>Upgrade to Scout Pro</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          )}
-        </View>
-      )}
+          )
+        })()}
 
-      {/* ── Your Details (players only) ── */}
-      {player && (
-        <View style={styles.insightBlock}>
-          <TouchableOpacity
-            style={styles.insightHeader}
-            onPress={() => {
-              const toValue = yourDetailsOpen ? 0 : 1
-              Animated.timing(detailsRotate, {
-                toValue,
-                duration: 200,
-                useNativeDriver: true,
-              }).start()
-              setYourDetailsOpen(v => !v)
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.insightTitle}>Your Details</Text>
-            <View style={styles.insightDivider} />
-            <Animated.View style={{ transform: [{ rotate: detailsRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                <Path
-                  d="M10.5 1V20M1 10.5H20"
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              </Svg>
-            </Animated.View>
-          </TouchableOpacity>
-          {yourDetailsOpen && (
-            <View style={styles.insightContent}>
-              <View style={styles.detailsContentWrap}>
-
-                {/* Age + Nationality */}
-                <View style={styles.detailsCardRow}>
-                  <View style={[styles.detailsCard, { width: 95 }]}>
-                    <Text style={styles.detailsCardLabel}>Age</Text>
-                    <Text style={styles.detailsCardValue}>
-                      {player.age ? `${player.age} Yrs` : '22 Yrs'}
-                    </Text>
-                  </View>
-                  <View style={[styles.detailsCard, { flex: 1 }]}>
-                    <Text style={styles.detailsCardLabel}>Nationality</Text>
-                    <Text style={styles.detailsCardValue} numberOfLines={1}>
-                      {player.nationality?.toUpperCase() ?? 'ENGLAND'}
-                    </Text>
-                  </View>
+        {/* ── Profile completion (players only) ── */}
+        {player && (
+          <View style={styles.section}>
+            <View style={styles.profileScoreRow}>
+              <View style={styles.ringWrap}>
+                <Svg width={78} height={78}>
+                  <G transform="rotate(-90, 39, 39)">
+                    <Circle
+                      cx={39} cy={39} r={RING_R}
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth={8}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={39} cy={39} r={RING_R}
+                      stroke={Colors.brand}
+                      strokeWidth={8}
+                      fill="none"
+                      strokeDasharray={RING_CIRCUMFERENCE}
+                      strokeDashoffset={RING_CIRCUMFERENCE * (1 - score / 100)}
+                      strokeLinecap="round"
+                    />
+                  </G>
+                </Svg>
+                <View style={styles.ringLabel}>
+                  <Text style={styles.ringScore}>{score}</Text>
                 </View>
+              </View>
+              <View style={styles.scoreTextCol}>
+                <Text style={styles.profileScoreTitle}>Profile Score</Text>
+                <Text style={styles.profileScoreDesc}>
+                  Complete your profile to help scouts find you easier
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
-                {/* Endorsements */}
-                {(() => {
-                  const uniqueEndorsers = isDemoMode
-                    ? new Set(DEMO_ENDORSEMENTS.map(e => e.scout_user_id)).size
-                    : 0  // TODO: fetch from DB
-                  return (
-                    <View style={[styles.detailsCard, styles.detailsEndorseCard]}>
-                      <Text style={styles.detailsCardLabel}>Scout Endorsements</Text>
-                      <Text style={styles.detailsCardValue}>{uniqueEndorsers}</Text>
-                      <View style={styles.btn_row_sml}>
-                        <TouchableOpacity
-                          style={[styles.btn_sml, styles.btn_outline_sml]}
-                          activeOpacity={0.8}
-                          onPress={() => router.push('/endorsements' as any)}
-                        >
-                          <Text style={styles.btn_text_sml}>View Endorsements</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.btn_sml, styles.btn_secondary_sml]} activeOpacity={0.85}>
-                          <Text style={[styles.btn_text_sml, { color: '#000000' }]}>Request</Text>
-                        </TouchableOpacity>
-                      </View>
+        {/* ── Profile Insights (players only) ── */}
+        {player && (
+          <View style={styles.insightBlock}>
+            <TouchableOpacity
+              style={styles.insightHeader}
+              onPress={() => {
+                const toValue = insightsOpen ? 0 : 1
+                Animated.timing(insightRotate, {
+                  toValue,
+                  duration: 200,
+                  useNativeDriver: true,
+                }).start()
+                setInsightsOpen(v => !v)
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.insightTitle}>Profile Insights</Text>
+              <View style={styles.insightDivider} />
+              <Animated.View style={{ transform: [{ rotate: insightRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                  <Path
+                    d="M10.5 1V20M1 10.5H20"
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </Animated.View>
+            </TouchableOpacity>
+            {insightsOpen && interestData && (
+              <View style={styles.insightContent}>
+                <ScoutInterestChart data30={interestData.data30} data7={interestData.data7} />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Your Details (players only) ── */}
+        {player && (
+          <View style={styles.insightBlock}>
+            <TouchableOpacity
+              style={styles.insightHeader}
+              onPress={() => {
+                const toValue = yourDetailsOpen ? 0 : 1
+                Animated.timing(detailsRotate, {
+                  toValue,
+                  duration: 200,
+                  useNativeDriver: true,
+                }).start()
+                setYourDetailsOpen(v => !v)
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.insightTitle}>Your Details</Text>
+              <View style={styles.insightDivider} />
+              <Animated.View style={{ transform: [{ rotate: detailsRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                  <Path
+                    d="M10.5 1V20M1 10.5H20"
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </Animated.View>
+            </TouchableOpacity>
+            {yourDetailsOpen && (
+              <View style={styles.insightContent}>
+                <View style={styles.detailsContentWrap}>
+
+                  {/* Age + Nationality */}
+                  <View style={styles.detailsCardRow}>
+                    <View style={[styles.detailsCard, { width: 95 }]}>
+                      <Text style={styles.detailsCardLabel}>Age</Text>
+                      <Text style={styles.detailsCardValue}>
+                        {player.age ? `${player.age} Yrs` : '22 Yrs'}
+                      </Text>
                     </View>
-                  )
-                })()}
+                    <View style={[styles.detailsCard, { flex: 1 }]}>
+                      <Text style={styles.detailsCardLabel}>Nationality</Text>
+                      <Text style={styles.detailsCardValue} numberOfLines={1}>
+                        {player.nationality?.toUpperCase() ?? 'ENGLAND'}
+                      </Text>
+                    </View>
+                  </View>
 
-                {/* Attribute list */}
-                {(() => {
-                  const positions = [
-                    player.primary_position,
-                    ...(player.secondary_positions ?? []),
-                  ].filter(Boolean) as string[]
-
-                  const attrs = [
-                    { label: 'Gender',         value: player.gender         ?? 'Male'  },
-                    { label: 'Height',         value: player.height_cm      ? `${player.height_cm} cm`  : '171 cm' },
-                    { label: 'Weight',         value: player.weight_kg      ? `${player.weight_kg}kg`   : '72kg'   },
-                    { label: 'Preferred Foot', value: player.preferred_foot ?? 'Both'  },
-                  ]
-
-                  const displayPositions = positions.length > 0 ? positions : ['CB', 'LB', 'RB']
-
-                  return (
-                    <View style={styles.attrWrap}>
-                      <View style={styles.attrInner}>
-                        {attrs.map(a => (
-                          <View key={a.label} style={styles.attrRow}>
-                            <Text style={styles.attrLabel}>{a.label}</Text>
-                            <Text style={styles.attrValue}>{a.value}</Text>
-                          </View>
-                        ))}
-                        <View style={styles.attrRow}>
-                          <Text style={styles.attrLabel}>Positions</Text>
-                          {displayPositions.map(p => (
-                            <Text key={p} style={styles.attrValue}>{p}</Text>
-                          ))}
+                  {/* Endorsements */}
+                  {(() => {
+                    const uniqueEndorsers = isDemoMode
+                      ? new Set(DEMO_ENDORSEMENTS.map(e => e.scout_user_id)).size
+                      : 0  // TODO: fetch from DB
+                    return (
+                      <View style={[styles.detailsCard, styles.detailsEndorseCard]}>
+                        <Text style={styles.detailsCardLabel}>Scout Endorsements</Text>
+                        <Text style={styles.detailsCardValue}>{uniqueEndorsers}</Text>
+                        <View style={styles.btn_row_sml}>
+                          <TouchableOpacity
+                            style={[styles.btn_sml, styles.btn_outline_sml]}
+                            activeOpacity={0.8}
+                            onPress={() => router.push('/endorsements' as any)}
+                          >
+                            <Text style={styles.btn_text_sml}>View Endorsements</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[styles.btn_sml, styles.btn_secondary_sml]} activeOpacity={0.85}>
+                            <Text style={[styles.btn_text_sml, { color: '#000000' }]}>Request</Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
-                    </View>
-                  )
-                })()}
+                    )
+                  })()}
 
-                {/* Player level card */}
-                <PlayerLevelCard
-                  playingLevel={(player.league_level ?? 'Grassroots').replace(/_/g, ' ')}
-                  performanceLevel={player.skill_level ?? 'medium skill level'}
-                />
+                  {/* Attribute list */}
+                  {(() => {
+                    const positions = [
+                      player.primary_position,
+                      ...(player.secondary_positions ?? []),
+                    ].filter(Boolean) as string[]
 
-              </View>
-            </View>
-          )}
-        </View>
-      )}
+                    const attrs = [
+                      { label: 'Gender', value: player.gender ?? 'Male' },
+                      { label: 'Height', value: player.height_cm ? `${player.height_cm} cm` : '171 cm' },
+                      { label: 'Weight', value: player.weight_kg ? `${player.weight_kg}kg` : '72kg' },
+                      { label: 'Preferred Foot', value: player.preferred_foot ?? 'Both' },
+                    ]
 
-      {/* ── Showreel (players only) ── */}
-      {player && (
-        <View style={styles.insightBlock}>
-          <TouchableOpacity
-            style={styles.insightHeader}
-            onPress={() => {
-              const toValue = showreelOpen ? 0 : 1
-              Animated.timing(showreelRotate, {
-                toValue,
-                duration: 200,
-                useNativeDriver: true,
-              }).start()
-              setShowreelOpen(v => !v)
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.insightTitle}>Showreel</Text>
-            <View style={styles.insightDivider} />
-            <Animated.View style={{ transform: [{ rotate: showreelRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
-              </Svg>
-            </Animated.View>
-          </TouchableOpacity>
+                    const displayPositions = positions.length > 0 ? positions : ['CB', 'LB', 'RB']
 
-          {showreelOpen && (
-            <View style={styles.insightContent}>
-              <TouchableOpacity style={styles.videoPlayer} activeOpacity={0.8}>
-                <View style={styles.playBtn}>
-                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                    <Path d="M6 4l14 8-14 8V4z" fill="#000000" />
-                  </Svg>
-                </View>
-                <Text style={styles.videoHint}>Tap to upload</Text>
-                <Text style={styles.videoHintSub}>Max 30 secs.</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+                    return (
+                      <View style={styles.attrWrap}>
+                        <View style={styles.attrInner}>
+                          {attrs.map(a => (
+                            <View key={a.label} style={styles.attrRow}>
+                              <Text style={styles.attrLabel}>{a.label}</Text>
+                              <Text style={styles.attrValue}>{a.value}</Text>
+                            </View>
+                          ))}
+                          <View style={styles.attrRow}>
+                            <Text style={styles.attrLabel}>Positions</Text>
+                            {displayPositions.map(p => (
+                              <Text key={p} style={styles.attrValue}>{p}</Text>
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                    )
+                  })()}
 
-      {/* ── Performance Log (players only) ── */}
-      {player && (
-        <View style={styles.insightBlock}>
-          <TouchableOpacity
-            style={styles.insightHeader}
-            onPress={() => {
-              const toValue = perfLogOpen ? 0 : 1
-              Animated.timing(perfLogRotate, {
-                toValue,
-                duration: 200,
-                useNativeDriver: true,
-              }).start()
-              setPerfLogOpen(v => !v)
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.insightTitle}>Performance Log</Text>
-            <View style={styles.insightDivider} />
-            <Animated.View style={{ transform: [{ rotate: perfLogRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
-              </Svg>
-            </Animated.View>
-          </TouchableOpacity>
+                  {/* Player level card */}
+                  <PlayerLevelCard
+                    playingLevel={(player.league_level ?? 'Grassroots').replace(/_/g, ' ')}
+                    performanceLevel={player.skill_level ?? 'medium skill level'}
+                  />
 
-          {perfLogOpen && (
-            <View style={styles.insightContent}>
-              <Text style={styles.perfDesc}>
-                Logging your activity gives a strong indication that you're; playing regularly, developing deliberately, and serious about being discovered. Scouts notice players who show up consistently.
-              </Text>
-
-              {/* Stat chips */}
-              <View style={styles.perfChipsRow}>
-                <View style={[styles.perfChip, { width: 126 }]}>
-                  <Text style={styles.perfChipNumber}>{totalLogs}</Text>
-                  <Text style={styles.perfChipLabel}>Performance{'\n'}Log Entries</Text>
-                </View>
-                <View style={[styles.perfChip, { flex: 1 }]}>
-                  <Text style={styles.perfChipNumber}>{weekLogs}</Text>
-                  <Text style={styles.perfChipLabel}>Added{'\n'}This Week</Text>
-                </View>
-                <View style={[styles.perfChip, styles.perfChipFire, { width: 84 }]}>
-                  <Text style={styles.perfChipEmoji}>🔥</Text>
-                  <Text style={styles.perfChipLabel}>Keep{'\n'}It Up!</Text>
                 </View>
               </View>
+            )}
+          </View>
+        )}
 
-              {/* CTA buttons */}
-              <View style={styles.btn_row}>
-                <TouchableOpacity style={[styles.btn, styles.btn_outline]} activeOpacity={0.8} onPress={() => router.push('/performance-log' as any)}>
-                  <Text style={[styles.btn_text, { color: '#ffffff' }]}>View Entries</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.btn, styles.btn_secondary]} activeOpacity={0.8} onPress={() => setLogSheetOpen(true)}>
-                  <Text style={[styles.btn_text, { color: '#000000' }]}>+ Add Entry</Text>
+        {/* ── Showreel (players only) ── */}
+        {player && (
+          <View style={styles.insightBlock}>
+            <TouchableOpacity
+              style={styles.insightHeader}
+              onPress={() => {
+                const toValue = showreelOpen ? 0 : 1
+                Animated.timing(showreelRotate, {
+                  toValue,
+                  duration: 200,
+                  useNativeDriver: true,
+                }).start()
+                setShowreelOpen(v => !v)
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.insightTitle}>Showreel</Text>
+              <View style={styles.insightDivider} />
+              <Animated.View style={{ transform: [{ rotate: showreelRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                  <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+              </Animated.View>
+            </TouchableOpacity>
+
+            {showreelOpen && (
+              <View style={styles.insightContent}>
+                <TouchableOpacity style={styles.videoPlayer} activeOpacity={0.8}>
+                  <View style={styles.playBtn}>
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Path d="M6 4l14 8-14 8V4z" fill="#000000" />
+                    </Svg>
+                  </View>
+                  <Text style={styles.videoHint}>Tap to upload</Text>
+                  <Text style={styles.videoHintSub}>Max 30 secs.</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-        </View>
-      )}
+            )}
+          </View>
+        )}
 
-      <TouchableOpacity
-        style={styles.signOut}
-        onPress={() =>
-          isDemoMode
-            ? router.replace('/demo-select' as any)
-            : signOut().then(() => router.replace('/splash'))
-        }
-      >
-        <Text style={styles.signOutText}>
-          {isDemoMode ? 'Exit Demo' : 'Sign out'}
-        </Text>
-      </TouchableOpacity>
+        {/* ── Performance Log (players only) ── */}
+        {player && (
+          <View style={styles.insightBlock}>
+            <TouchableOpacity
+              style={styles.insightHeader}
+              onPress={() => {
+                const toValue = perfLogOpen ? 0 : 1
+                Animated.timing(perfLogRotate, {
+                  toValue,
+                  duration: 200,
+                  useNativeDriver: true,
+                }).start()
+                setPerfLogOpen(v => !v)
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.insightTitle}>Performance Log</Text>
+              <View style={styles.insightDivider} />
+              <Animated.View style={{ transform: [{ rotate: perfLogRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                  <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+              </Animated.View>
+            </TouchableOpacity>
+
+            {perfLogOpen && (
+              <View style={styles.insightContent}>
+                <Text style={styles.perfDesc}>
+                  Logging your activity gives a strong indication that you're; playing regularly, developing deliberately, and serious about being discovered. Scouts notice players who show up consistently.
+                </Text>
+
+                {/* Stat chips */}
+                <View style={styles.perfChipsRow}>
+                  <View style={[styles.perfChip, { width: 126 }]}>
+                    <Text style={styles.perfChipNumber}>{totalLogs}</Text>
+                    <Text style={styles.perfChipLabel}>Performance{'\n'}Log Entries</Text>
+                  </View>
+                  <View style={[styles.perfChip, { flex: 1 }]}>
+                    <Text style={styles.perfChipNumber}>{weekLogs}</Text>
+                    <Text style={styles.perfChipLabel}>Added{'\n'}This Week</Text>
+                  </View>
+                  <View style={[styles.perfChip, styles.perfChipFire, { width: 84 }]}>
+                    <Text style={styles.perfChipEmoji}>🔥</Text>
+                    <Text style={styles.perfChipLabel}>Keep{'\n'}It Up!</Text>
+                  </View>
+                </View>
+
+                {/* CTA buttons */}
+                <View style={styles.btn_row}>
+                  <TouchableOpacity style={[styles.btn, styles.btn_outline]} activeOpacity={0.8} onPress={() => router.push('/performance-log' as any)}>
+                    <Text style={[styles.btn_text, { color: '#ffffff' }]}>View Entries</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.btn, styles.btn_secondary]} activeOpacity={0.8} onPress={() => setLogSheetOpen(true)}>
+                    <Text style={[styles.btn_text, { color: '#000000' }]}>+ Add Entry</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.signOut}
+          onPress={() =>
+            isDemoMode
+              ? router.replace('/demo-select' as any)
+              : signOut().then(() => router.replace('/splash'))
+          }
+        >
+          <Text style={styles.signOutText}>
+            {isDemoMode ? 'Exit Demo' : 'Sign out'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
       <PerformanceLogSheet
         visible={logSheetOpen}
@@ -635,12 +635,14 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:  { flex: 1 },
-  content:    { paddingBottom: 200 },
-  center:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12,
-                backgroundColor: Colors.background },
+  container: { flex: 1 },
+  content: { paddingBottom: 200 },
+  center: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12,
+    backgroundColor: Colors.background
+  },
   emptyTitle: { color: Colors.text, fontSize: 16, fontWeight: '600' },
-  link:       { color: Colors.brand, fontSize: 14 },
+  link: { color: Colors.brand, fontSize: 14 },
   signOutEmpty: { marginTop: 8, paddingVertical: 10, paddingHorizontal: 24 },
   signOutEmptyText: { color: Colors.error, fontSize: 14, fontWeight: '600' },
 

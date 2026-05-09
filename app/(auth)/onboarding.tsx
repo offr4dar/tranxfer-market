@@ -41,9 +41,35 @@ interface WizardData {
   email: string; password: string
   termsAccepted: boolean
   dbsConfirmed: boolean
+  // Scout-specific
+  affiliatedClub: string
+  scoutingNetwork: string
+  yearsExperience: string
+  clearanceNumber: string
+  leagueLevel: string
+  positionsSeeking: string[]
+  ageRangeMin: string
+  ageRangeMax: string
+  phone: string
+  country: string
+  bio: string
 }
-const INIT: WizardData = { role: null, scoutType: null, gender: null, foot: null, positions: [], firstName: '', lastName: '', age: '', outwardCode: '', postcode: '', email: '', password: '', termsAccepted: false, dbsConfirmed: false }
-const AGES = Array.from({ length: 60 }, (_, i) => String(i + 16))
+const INIT: WizardData = {
+  role: null, scoutType: null, gender: null, foot: null, positions: [],
+  firstName: '', lastName: '', age: '', outwardCode: '', postcode: '',
+  email: '', password: '', termsAccepted: false, dbsConfirmed: false,
+  affiliatedClub: '', scoutingNetwork: '', yearsExperience: '',
+  clearanceNumber: '', leagueLevel: '', positionsSeeking: [],
+  ageRangeMin: '', ageRangeMax: '', phone: '', country: '', bio: '',
+}
+const AGES      = Array.from({ length: 60 }, (_, i) => String(i + 16))
+const YEARS_EXP = Array.from({ length: 40 }, (_, i) => String(i + 1))
+const LEAGUE_LEVELS = [
+  'Premier League', 'Championship', 'League 1', 'League 2',
+  'National League', 'National League North', 'National League South',
+  'Step 3', 'Step 4', 'Step 5', 'Step 6',
+  'Academy', 'Amateur', 'International', 'Other',
+]
 
 
 const GENDERS: { key: GenderType; label: string }[] = [
@@ -83,24 +109,26 @@ function StepCircle({ status }: { status: StepStatus }) {
     </View>
   )
 }
-function StepRow({ step, opacities, translates, greyDot }: {
+function StepRow({ step, opacities, translates, greyDot, total = 5 }: {
   step: number
   opacities: Animated.Value[]
   translates: Animated.Value[]
   greyDot?: number
+  total?: number
 }) {
+  const last = total - 1
   const status = (i: number): StepStatus =>
     i < step ? 'complete' : i === step ? 'active' : 'inactive'
   return (
     <View style={sc.row}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i < 4 ? 1 : 0 }}>
+      {Array.from({ length: total }, (_, i) => i).map((i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', flex: i < last ? 1 : 0 }}>
           <Animated.View style={[
             { opacity: opacities[i], transform: [{ translateY: translates[i] }] },
           ]}>
             <StepCircle status={i === greyDot ? 'disabled' : status(i)} />
           </Animated.View>
-          {i < 4 && <View style={[sc.connector, i < step - 1 && sc.connectorDone]} />}
+          {i < last && <View style={[sc.connector, i < step - 1 && sc.connectorDone]} />}
         </View>
       ))}
     </View>
@@ -247,8 +275,9 @@ const ro = StyleSheet.create({
 })
 
 function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
-  const [showAge, setShowAge] = useState(false)
-  const [chips, setChips] = useState<string[]>([])
+  const [showAge, setShowAge]     = useState(false)
+  const [showYears, setShowYears] = useState(false)
+  const [chips, setChips]         = useState<string[]>([])
 
   const search = useCallback((q: string) => {
     if (q.length < 1) { setChips([]); return }
@@ -261,7 +290,7 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
 
   return (
     <View style={{ gap: 32 }}>
-      {/* Agent sub-type — agents only */}
+      {/* Scout type */}
       {data.role === 'scout' && (
         <View style={{ gap: 16 }}>
           <Text style={fs.label}>Which role best describes you?</Text>
@@ -277,6 +306,67 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
             ))}
           </View>
         </View>
+      )}
+
+      {/* Affiliated club — club scouts */}
+      {data.role === 'scout' && data.scoutType === 'club_scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Which club do you scout for?</Text>
+          <TextInput
+            style={fs.input} placeholderTextColor="#909090" placeholder="e.g. Arsenal FC"
+            value={data.affiliatedClub}
+            onChangeText={v => onChange({ affiliatedClub: v })}
+            autoCapitalize="words"
+          />
+        </View>
+      )}
+
+      {/* Scouting network — freelance scouts (optional) */}
+      {data.role === 'scout' && data.scoutType === 'freelance_scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Scouting network <Text style={fs.hint}>(optional)</Text></Text>
+          <Text style={fs.hint}>Enter if you're part of a network or association</Text>
+          <TextInput
+            style={fs.input} placeholderTextColor="#909090" placeholder="e.g. UK Football Scouts"
+            value={data.scoutingNetwork}
+            onChangeText={v => onChange({ scoutingNetwork: v })}
+            autoCapitalize="words"
+          />
+        </View>
+      )}
+
+      {/* Years experience — scouts */}
+      {data.role === 'scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Years of scouting experience</Text>
+          <TouchableOpacity style={fs.select} onPress={() => setShowYears(true)} activeOpacity={0.85}>
+            <Text style={data.yearsExperience ? fs.val : fs.ph}>
+              {data.yearsExperience ? `${data.yearsExperience} year${data.yearsExperience === '1' ? '' : 's'}` : 'Select years'}
+            </Text>
+            <ChevronDown />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {data.role === 'scout' && (
+        <Modal visible={showYears} transparent animationType="slide">
+          <View style={fs.pickerBg}>
+            <View style={fs.pickerSheet}>
+              <View style={fs.pickerHead}>
+                <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>Years of experience</Text>
+                <TouchableOpacity onPress={() => setShowYears(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
+              </View>
+              <FlatList data={YEARS_EXP} keyExtractor={i => i} renderItem={({ item }) => (
+                <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
+                  onPress={() => { onChange({ yearsExperience: item }); setShowYears(false) }}>
+                  <Text style={{ fontSize: 18, color: data.yearsExperience === item ? ACCENT : '#fff' }}>
+                    {item} year{item === '1' ? '' : 's'}
+                  </Text>
+                </TouchableOpacity>
+              )} />
+            </View>
+          </View>
+        </Modal>
       )}
 
       {/* Age — players only */}
@@ -405,14 +495,18 @@ function ShirtSVG({ selected, label }: { selected: boolean; label: string }) {
   )
 }
 
-function ShirtRackSelector({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
+function ShirtRackSelector({ selected, onChange, maxSelect = 3 }: {
+  selected: string[]
+  onChange: (ids: string[]) => void
+  maxSelect?: number
+}) {
   const toggle = (id: string) => {
     if (selected.includes(id)) { onChange(selected.filter(s => s !== id)); return }
-    if (selected.length < 3) onChange([...selected, id])
+    if (selected.length < maxSelect) onChange([...selected, id])
   }
   return (
     <View style={{ gap: 10 }}>
-      {/* Rail — full width, no edge fades */}
+      {/* Rail */}
       <View style={{ marginBottom: 16 }}>
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: 'rgba(255,255,255,0.11)', zIndex: 10 }} />
         <ScrollView
@@ -422,7 +516,7 @@ function ShirtRackSelector({ selected, onChange }: { selected: string[]; onChang
         >
           {SHIRT_LIST.map(shirt => {
             const isSel = selected.includes(shirt.id)
-            const isDis = !isSel && selected.length >= 3
+            const isDis = !isSel && selected.length >= maxSelect
             return (
               <TouchableOpacity
                 key={shirt.id}
@@ -440,7 +534,6 @@ function ShirtRackSelector({ selected, onChange }: { selected: string[]; onChang
         </ScrollView>
       </View>
 
-      {/* Selected pills — postcode chip style */}
       {selected.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: H_PAD }}>
           {selected.map(id => (
@@ -451,7 +544,7 @@ function ShirtRackSelector({ selected, onChange }: { selected: string[]; onChang
         </View>
       )}
 
-      {selected.length === 3 && (
+      {selected.length === maxSelect && (
         <Text style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.28)', letterSpacing: 0.3, paddingHorizontal: H_PAD }}>
           Maximum reached — tap a chip to remove
         </Text>
@@ -492,15 +585,14 @@ function YourGameStep({ data, onChange }: { data: WizardData; onChange: (d: Part
   )
 }
 
-// ─── Step 3: Your details (name) ─────────────────────────────────────────────
+// ─── Step 4 (Scout) / Step 3 (Player): Your details ─────────────────────────
 
-/** Returns the full intro label for the details step, tailored to role and agent type */
 function detailsIntro(data: WizardData): string {
   if (data.role === 'player') return 'Please enter your first and last name.'
   switch (data.scoutType) {
-    case 'club_scout':      return 'Please enter your first name and last name as registered with your current club'
-    case 'freelance_scout': return 'Please enter your first name and last name.'
-    default:                return 'Please enter your first and last name.'
+    case 'club_scout':      return 'Please enter your name as registered with your club, along with your contact details.'
+    case 'freelance_scout': return 'Please enter your personal details below.'
+    default:                return 'Please enter your details below.'
   }
 }
 
@@ -518,6 +610,57 @@ function DetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Doe"
           value={data.lastName} onChangeText={v => onChange({ lastName: v })} autoCapitalize="words" />
       </View>
+
+      {/* Gender — scouts only */}
+      {data.role === 'scout' && (
+        <View style={{ gap: 16 }}>
+          <View style={{ gap: 2 }}>
+            <Text style={fs.label}>What is your gender?</Text>
+            <Text style={fs.hint}>Helps us personalise your experience.</Text>
+          </View>
+          <View style={{ gap: 10 }}>
+            {GENDERS.map(g => (
+              <RadioOption key={g.key} label={g.label}
+                selected={data.gender === g.key}
+                onPress={() => onChange({ gender: g.key })} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Phone — scouts only */}
+      {data.role === 'scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Phone number</Text>
+          <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="+44 7700 900000"
+            value={data.phone} onChangeText={v => onChange({ phone: v })} keyboardType="phone-pad" />
+        </View>
+      )}
+
+      {/* Country — scouts only */}
+      {data.role === 'scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Country you operate in</Text>
+          <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="e.g. England"
+            value={data.country} onChangeText={v => onChange({ country: v })} autoCapitalize="words" />
+        </View>
+      )}
+
+      {/* Bio — scouts only (optional) */}
+      {data.role === 'scout' && (
+        <View style={{ gap: 16 }}>
+          <Text style={fs.label}>Short bio <Text style={fs.hint}>(optional)</Text></Text>
+          <TextInput
+            style={[fs.input, { height: 100, paddingTop: 14, textAlignVertical: 'top' }]}
+            placeholderTextColor="#909090"
+            placeholder="Tell clubs and players a little about your scouting background..."
+            value={data.bio}
+            onChangeText={v => onChange({ bio: v })}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+      )}
     </View>
   )
 }
@@ -627,9 +770,9 @@ function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Pa
   )
 }
 
-// ─── Step 2 (Scout only): DBS / Safeguarding declaration ─────────────────────
+// ─── Step 2 (Scout only): DBS / Safeguarding + certificate number ────────────
 function DBSStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
-  const [holdsDBS, setHoldsDBS]           = useState(data.dbsConfirmed)
+  const [holdsDBS, setHoldsDBS]                   = useState(data.dbsConfirmed)
   const [understandsVerify, setUnderstandsVerify] = useState(data.dbsConfirmed)
 
   const sync = (h: boolean, u: boolean) => {
@@ -675,37 +818,134 @@ function DBSStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<W
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* DBS certificate number */}
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>DBS certificate reference number</Text>
+        <Text style={fs.hint}>The reference number shown on your Enhanced DBS certificate</Text>
+        <TextInput
+          style={fs.input} placeholderTextColor="#909090" placeholder="e.g. 001234567890"
+          value={data.clearanceNumber}
+          onChangeText={v => onChange({ clearanceNumber: v })}
+          autoCapitalize="none"
+          keyboardType="default"
+        />
+      </View>
     </View>
   )
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+// ─── Step 3 (Scout only): Your Expertise ─────────────────────────────────────
+function ExpertiseStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  const [showLeague, setShowLeague] = useState(false)
+  return (
+    <View style={{ gap: 32 }}>
+      {/* League level */}
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>Which level do you primarily scout at?</Text>
+        <TouchableOpacity style={fs.select} onPress={() => setShowLeague(true)} activeOpacity={0.85}>
+          <Text style={data.leagueLevel ? fs.val : fs.ph}>{data.leagueLevel || 'Select league level'}</Text>
+          <ChevronDown />
+        </TouchableOpacity>
+      </View>
+
+      <Modal visible={showLeague} transparent animationType="slide">
+        <View style={fs.pickerBg}>
+          <View style={fs.pickerSheet}>
+            <View style={fs.pickerHead}>
+              <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>League level</Text>
+              <TouchableOpacity onPress={() => setShowLeague(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
+            </View>
+            <FlatList data={LEAGUE_LEVELS} keyExtractor={i => i} renderItem={({ item }) => (
+              <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
+                onPress={() => { onChange({ leagueLevel: item }); setShowLeague(false) }}>
+                <Text style={{ fontSize: 18, color: data.leagueLevel === item ? ACCENT : '#fff' }}>{item}</Text>
+              </TouchableOpacity>
+            )} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Positions seeking — shirt rack */}
+      <View style={{ gap: 6, marginHorizontal: -H_PAD }}>
+        <Text style={[fs.label, { paddingHorizontal: H_PAD }]}>Player positions you recruit for</Text>
+        <Text style={[fs.hint, { paddingHorizontal: H_PAD, marginBottom: 30 }]}>Select up to five – swipe to browse</Text>
+        <ShirtRackSelector
+          selected={data.positionsSeeking}
+          onChange={ids => onChange({ positionsSeeking: ids })}
+          maxSelect={5}
+        />
+      </View>
+
+      {/* Age range */}
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>Player age range you scout</Text>
+        <Text style={fs.hint}>Minimum and maximum age of players you typically recruit for</Text>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={fs.hint}>Min age</Text>
+            <TextInput
+              style={fs.input} placeholderTextColor="#909090" placeholder="16"
+              value={data.ageRangeMin}
+              onChangeText={v => onChange({ ageRangeMin: v.replace(/[^0-9]/g, '') })}
+              keyboardType="number-pad"
+            />
+          </View>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={fs.hint}>Max age</Text>
+            <TextInput
+              style={fs.input} placeholderTextColor="#909090" placeholder="35"
+              value={data.ageRangeMax}
+              onChangeText={v => onChange({ ageRangeMax: v.replace(/[^0-9]/g, '') })}
+              keyboardType="number-pad"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+
 function validate(step: number, data: WizardData, isOAuth = false): string {
   const isScout = data.role === 'scout'
+  // Step 0: role selection
   if (step === 0 && !data.role) return 'Please select your profile type'
-  if (step === 1 && data.role === 'player' && !data.age) return 'Please select your age'
-  if (step === 1 && data.role === 'scout' && !data.scoutType) return 'Please select your role'
-  if (step === 1 && !data.postcode) return 'Please select a postcode'
-  if (step === 1 && !data.gender && data.role === 'player') return 'Please select your gender'
-  // Scout step 2: Safeguarding declaration
+  // Step 1: Your Role (scout) / About You (player)
+  if (step === 1 && isScout && !data.scoutType) return 'Please select your role'
+  if (step === 1 && isScout && data.scoutType === 'club_scout' && !data.affiliatedClub.trim()) return 'Please enter your club name'
+  if (step === 1 && isScout && !data.yearsExperience) return 'Please select your years of experience'
+  if (step === 1 && isScout && !data.postcode) return 'Please select a postcode'
+  if (step === 1 && !isScout && !data.age) return 'Please select your age'
+  if (step === 1 && !isScout && !data.gender) return 'Please select your gender'
+  if (step === 1 && !isScout && !data.postcode) return 'Please select a postcode'
+  // Step 2: Safeguarding (scout) / Your Game (player)
   if (isScout && step === 2 && !data.dbsConfirmed) return 'Please confirm both declarations to continue'
-  // Player step 2: Your Game
+  if (isScout && step === 2 && !data.clearanceNumber.trim()) return 'Please enter your DBS certificate reference number'
   if (!isScout && step === 2 && data.positions.length === 0) return 'Please select at least one position'
   if (!isScout && step === 2 && !data.foot) return 'Please select your preferred foot'
-  // Details: both roles at step 3
-  if (step === 3 && !data.firstName.trim()) return 'Please enter your first name'
-  if (step === 3 && !data.lastName.trim()) return 'Please enter your last name'
-  // Account: both roles at step 4
-  if (!isOAuth && step === 4 && !data.email.trim()) return 'Please enter your email'
-  if (!isOAuth && step === 4 && data.password.length < 8) return 'Password must be at least 8 characters'
-  if (step === 4 && !data.termsAccepted) return 'Please accept the terms to continue'
+  // Step 3: Your Expertise (scout only)
+  if (isScout && step === 3 && !data.leagueLevel) return 'Please select the league level you scout at'
+  if (isScout && step === 3 && data.positionsSeeking.length === 0) return 'Please select at least one position you recruit for'
+  // Step 4 (scout) / Step 3 (player): Details
+  const detailStep = isScout ? 4 : 3
+  if (step === detailStep && !data.firstName.trim()) return 'Please enter your first name'
+  if (step === detailStep && !data.lastName.trim()) return 'Please enter your last name'
+  if (step === detailStep && isScout && !data.gender) return 'Please select your gender'
+  if (step === detailStep && isScout && !data.phone.trim()) return 'Please enter your phone number'
+  if (step === detailStep && isScout && !data.country.trim()) return 'Please enter the country you operate in'
+  // Step 5 (scout) / Step 4 (player): Account
+  const accountStep = isScout ? 5 : 4
+  if (!isOAuth && step === accountStep && !data.email.trim()) return 'Please enter your email'
+  if (!isOAuth && step === accountStep && data.password.length < 8) return 'Password must be at least 8 characters'
+  if (step === accountStep && !data.termsAccepted) return 'Please accept the terms to continue'
   return ''
 }
 function isStepValid(step: number, data: WizardData, isOAuth = false) { return validate(step, data, isOAuth) === '' }
 
 // ─── Screen titles per step ───────────────────────────────────────────────────
 const TITLES_PLAYER = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nGAME', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
-const TITLES_SCOUT  = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'SAFEGUARDING\nDECLARATION', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_SCOUT  = ['SELECT YOUR\nPROFILE', 'YOUR\nROLE', 'SAFEGUARDING\nDECLARATION', 'YOUR\nEXPERTISE', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function OnboardingScreen() {
@@ -742,9 +982,9 @@ export default function OnboardingScreen() {
   const currentX = useRef(new Animated.Value(0)).current
   const incomingX = useRef(new Animated.Value(0)).current
   const currentOpacity = useRef(new Animated.Value(1)).current
-  // Per-dot opacity and translate — only changing dots animate
-  const dotOpacities  = useRef([0,1,2,3,4].map(() => new Animated.Value(1))).current
-  const dotTranslates = useRef([0,1,2,3,4].map(() => new Animated.Value(0))).current
+  // Per-dot opacity and translate — 6 entries to cover scouts (6 steps) and players (5 steps)
+  const dotOpacities  = useRef([0,1,2,3,4,5].map(() => new Animated.Value(1))).current
+  const dotTranslates = useRef([0,1,2,3,4,5].map(() => new Animated.Value(0))).current
 
   const update = (p: Partial<WizardData>) => { setData(d => ({ ...d, ...p })); setError('') }
 
@@ -799,7 +1039,7 @@ export default function OnboardingScreen() {
   const goNext = async () => {
     const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
-    const lastStep = 4
+    const lastStep = data.role === 'scout' ? 5 : 4
     // Navigate forward
     if (step < lastStep) {
       const next = step + 1
@@ -825,8 +1065,24 @@ export default function OnboardingScreen() {
           gender:         data.gender || null,
           preferred_foot: data.foot  || null,
         }
-        if (data.role === 'player') payload.age = parseInt(data.age)
-        if (data.role === 'scout') payload.scout_type = data.scoutType ?? 'club_scout'
+        if (data.role === 'player') {
+          payload.age = parseInt(data.age)
+        }
+        if (data.role === 'scout') {
+          payload.scout_type       = data.scoutType ?? 'club_scout'
+          payload.affiliated_club  = data.affiliatedClub  || null
+          payload.scouting_network = data.scoutingNetwork || null
+          payload.years_experience = data.yearsExperience ? parseInt(data.yearsExperience) : null
+          payload.clearance_check  = data.dbsConfirmed
+          payload.clearance_number = data.clearanceNumber || null
+          payload.league_level     = data.leagueLevel     || null
+          payload.positions_seeking = data.positionsSeeking.length > 0 ? data.positionsSeeking : null
+          payload.age_range_min    = data.ageRangeMin ? parseInt(data.ageRangeMin) : null
+          payload.age_range_max    = data.ageRangeMax ? parseInt(data.ageRangeMax) : null
+          payload.phone            = data.phone    || null
+          payload.country          = data.country  || null
+          payload.bio              = data.bio       || null
+        }
         await supabase.from(table).upsert(payload)
         router.replace('/(tabs)/feed')
       } catch (e: any) {
@@ -893,11 +1149,12 @@ export default function OnboardingScreen() {
     const prev = step - 1
     animateStep(-1, prev)
   }
-  const valid   = isStepValid(step, data, isOAuth)
-  const getCTA  = (s: number) => s === 0 ? 'Next' : s < 4 ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
-  const getTitle = (s: number) => {
+  const valid      = isStepValid(step, data, isOAuth)
+  const lastStep   = isScout ? 5 : 4
+  const getCTA     = (s: number) => s === 0 ? 'Next' : s < lastStep ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
+  const getTitle   = (s: number) => {
     const titles = isScout ? TITLES_SCOUT : TITLES_PLAYER
-    if (s === 4 && isOAuth) return 'ALMOST\nTHERE'
+    if (s === lastStep && isOAuth) return 'ALMOST\nTHERE'
     return titles[s] ?? ''
   }
 
@@ -916,14 +1173,16 @@ export default function OnboardingScreen() {
       <View>
         {s === 0 && <RoleStep data={data} onChange={update} />}
         {s === 1 && <AboutStep data={data} onChange={update} />}
-        {/* Step 2: DBS declaration for scouts, Your Game for players */}
+        {/* Scout step 2: Safeguarding | Player step 2: Your Game */}
         {s === 2 && (isScout
           ? <DBSStep data={data} onChange={update} />
           : <YourGameStep data={data} onChange={update} />)}
-        {/* Step 3: Details for both roles */}
-        {s === 3 && <DetailsStep data={data} onChange={update} />}
-        {/* Step 4: Account for both roles */}
-        {s === 4 && (isOAuth
+        {/* Scout step 3: Your Expertise */}
+        {isScout && s === 3 && <ExpertiseStep data={data} onChange={update} />}
+        {/* Scout step 4 / Player step 3: Details */}
+        {((isScout && s === 4) || (!isScout && s === 3)) && <DetailsStep data={data} onChange={update} />}
+        {/* Scout step 5 / Player step 4: Account */}
+        {((isScout && s === 5) || (!isScout && s === 4)) && (isOAuth
           ? <OAuthFinalStep data={data} onChange={update} />
           : <AccountStep data={data} onChange={update} />)}
       </View>
@@ -970,12 +1229,13 @@ export default function OnboardingScreen() {
 
         <View style={[st.root, { paddingTop: Math.max(insets.top + 20, 60) }]}>
 
-          {/* Step dots */}
+          {/* Step dots — 6 for scouts, 5 for players */}
           <StepRow
             step={displayStep}
             opacities={dotOpacities}
             translates={dotTranslates}
             greyDot={undefined}
+            total={isScout ? 6 : 5}
           />
 
           {/* Slide area — title + form fields move as one unit */}
