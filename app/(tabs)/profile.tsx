@@ -311,7 +311,11 @@ export default function ProfileScreen() {
 
         {/* ── Profile completion (players only) ── */}
         {player && (
-          <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.section}
+            activeOpacity={0.7}
+            onPress={() => router.push('/edit-profile' as any)}
+          >
             <View style={styles.profileScoreRow}>
               <View style={styles.ringWrap}>
                 <Svg width={78} height={78}>
@@ -343,8 +347,17 @@ export default function ProfileScreen() {
                   Complete your profile to help scouts find you easier
                 </Text>
               </View>
+              <Svg width={9} height={16} viewBox="0 0 9 16" fill="none">
+                <Path
+                  d="M1 1l7 7-7 7"
+                  stroke="rgba(255,255,255,0.4)"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* ── Profile Insights (players only) ── */}
