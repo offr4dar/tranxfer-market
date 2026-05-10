@@ -123,6 +123,19 @@ export const DEMO_SCOUT_FREE_PROFILE = {
   subscription_tier: 'free',
   created_at: '2024-09-01T00:00:00Z',
   updated_at: '2025-01-15T00:00:00Z',
+  // Layer 1 verification — freelance scout, partially verified
+  id_verified: true,
+  id_verified_at: '2025-02-10T00:00:00Z',
+  dbs_certificate_number: null,
+  dbs_issue_date: null,
+  dbs_on_update_service: false,
+  dbs_verified: false,
+  dbs_verified_at: null,
+  dbs_expiry_reminder: null,
+  safeguarding_certified: false,
+  safeguarding_certified_at: null,
+  safeguarding_expiry: null,
+  layer1_verified: false,
 }
 
 export const DEMO_SCOUT_PRO_PROFILE = {
@@ -142,6 +155,19 @@ export const DEMO_SCOUT_PRO_PROFILE = {
   subscription_tier: 'pro',
   created_at: '2023-03-12T00:00:00Z',
   updated_at: '2025-04-20T00:00:00Z',
+  // Layer 1 verification — club scout, fully verified
+  id_verified: true,
+  id_verified_at: '2024-06-15T00:00:00Z',
+  dbs_certificate_number: '001234567890',
+  dbs_issue_date: '2024-06-01',
+  dbs_on_update_service: true,
+  dbs_verified: true,
+  dbs_verified_at: '2024-06-20T00:00:00Z',
+  dbs_expiry_reminder: '2027-06-01',
+  safeguarding_certified: true,
+  safeguarding_certified_at: '2024-07-10T00:00:00Z',
+  safeguarding_expiry: '2026-07-10',
+  layer1_verified: true,
 }
 
 // ─── Dummy players shown in the scout feed ────────────────────────────────────

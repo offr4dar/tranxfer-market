@@ -14,9 +14,117 @@ import ScoutInterestChart, { ChartDataPoint } from '@/components/ScoutInterestCh
 import { fetchScoutInterest, ScoutInterestResult } from '@/lib/queries/scout-interest'
 import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
+import DbsInfoSheet from '@/components/DbsInfoSheet'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
 import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_ENDORSEMENTS } from '@/lib/demoData'
+
+// ─── DBS verification section (scout profile card) ────────────────────────────
+function DbsVerificationSection({ scout }: { scout: typeof DEMO_SCOUT_FREE_PROFILE | typeof DEMO_SCOUT_PRO_PROFILE }) {
+  const [sheetVisible, setSheetVisible] = useState(false)
+  const s = scout as any
+
+  type VerifyStatus = 'verified' | 'pending' | 'not_started'
+
+  function idStatus(): VerifyStatus {
+    return s.id_verified ? 'verified' : 'not_started'
+  }
+  function dbsStatus(): VerifyStatus {
+    if (s.dbs_verified) return 'verified'
+    if (s.dbs_certificate_number) return 'pending'
+    return 'not_started'
+  }
+  function safeguardStatus(): VerifyStatus {
+    if (s.safeguarding_certified) return 'verified'
+    return 'not_started'
+  }
+
+  function StatusBadge({ status, label }: { status: VerifyStatus; label: string }) {
+    const colour = status === 'verified' ? Colors.brand : status === 'pending' ? Colors.textSecondary : Colors.textMuted
+    const icon   = status === 'verified' ? '✓' : status === 'pending' ? '⏳' : '○'
+    const text   = status === 'verified' ? 'Verified' : status === 'pending' ? 'Pending' : 'Not completed'
+    return (
+      <View style={dbsStyles.row}>
+        <Text style={dbsStyles.label}>{label}</Text>
+        <View style={dbsStyles.badge}>
+          <Text style={[dbsStyles.icon, { color: colour }]}>{icon}</Text>
+          <Text style={[dbsStyles.badgeText, { color: colour }]}>{text}</Text>
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <>
+      {/* Section header */}
+      <View style={dbsStyles.header}>
+        <Text style={dbsStyles.headerTitle}>Identity & DBS</Text>
+        <TouchableOpacity onPress={() => setSheetVisible(true)} hitSlop={12} activeOpacity={0.7}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Circle cx={12} cy={12} r={10} stroke={Colors.textSecondary} strokeWidth={1.5} />
+            <Path d="M12 16v-4M12 8h.01" stroke={Colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </TouchableOpacity>
+      </View>
+
+      {s.layer1_verified ? (
+        <View style={dbsStyles.row}>
+          <Text style={[dbsStyles.label, { color: Colors.brand, fontWeight: '600' }]}>✓  Fully verified</Text>
+        </View>
+      ) : (
+        <>
+          <StatusBadge status={idStatus()} label="Identity" />
+          <StatusBadge status={dbsStatus()} label="DBS" />
+          <StatusBadge status={safeguardStatus()} label="Safeguarding" />
+        </>
+      )}
+
+      <DbsInfoSheet visible={sheetVisible} onClose={() => setSheetVisible(false)} />
+    </>
+  )
+}
+
+const dbsStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  label: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    letterSpacing: 0.28,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  icon: {
+    fontSize: 13,
+  },
+  badgeText: {
+    fontSize: 13,
+    letterSpacing: 0.26,
+    fontWeight: '600',
+  },
+})
+
 
 function EditIcon() {
   return (
@@ -30,6 +138,7 @@ function EditIcon() {
     </Svg>
   )
 }
+
 
 function GearIcon() {
   return (
@@ -292,12 +401,9 @@ export default function ProfileScreen() {
                 <Text style={styles.scoutInfoValue}>{scout.specialisms.join(', ')}</Text>
               </View>
               <View style={styles.scoutInfoDivider} />
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>DBS Verified</Text>
-                <Text style={[styles.scoutInfoValue, { color: Colors.brand }]}>
-                  {scout.clearance_check ? '✓  Cleared' : 'Pending'}
-                </Text>
-              </View>
+
+              {/* Identity & DBS verification section */}
+              <DbsVerificationSection scout={scout} />
 
               {/* Upgrade CTA for free scouts */}
               {devRole === 'scout_free' && (

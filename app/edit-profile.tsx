@@ -7,8 +7,9 @@ import {
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Circle } from 'react-native-svg'
 import ScreenBackground from '@/components/ScreenBackground'
+import DbsInfoSheet from '@/components/DbsInfoSheet'
 import { supabase } from '@/lib/supabase'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
@@ -177,6 +178,10 @@ interface FormState {
   nationality: string
   playingLevel: string
   performanceLevel: string
+  // Scout DBS / verification fields
+  dbsCertificateNumber: string
+  dbsOnUpdateService: boolean
+  safeguardingCertified: boolean
 }
 
 export default function EditProfileScreen() {
@@ -190,10 +195,15 @@ export default function EditProfileScreen() {
     firstName: '', lastName: '', dob: '',
     height: '', weight: '', gender: '',
     nationality: '', playingLevel: '', performanceLevel: '',
+    dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
   })
-  const [loading, setLoading]   = useState(true)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [dbsInfoVisible, setDbsInfoVisible] = useState(false)
+  // Read-only scout verification state loaded from DB / demo
+  const [idVerified, setIdVerified]   = useState(false)
+  const [idVerifiedAt, setIdVerifiedAt] = useState<string | null>(null)
 
   // Fields not editable here but needed for the completion score
   const immutableRef = useRef({ primaryPosition: '', photoUrl: '', reelUrl: '' })
@@ -219,6 +229,8 @@ export default function EditProfileScreen() {
           nationality:      p.nationality ?? '',
           playingLevel:     p.league_level ?? '',
           performanceLevel: p.skill_level  ?? '',
+          // player accounts don't use DBS fields
+          dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
         })
         immutableRef.current = {
           primaryPosition: p.primary_position  ?? '',
@@ -229,10 +241,15 @@ export default function EditProfileScreen() {
         const s = devRole === 'scout_subscribed' ? DEMO_SCOUT_PRO_PROFILE : DEMO_SCOUT_FREE_PROFILE
         setForm(prev => ({
           ...prev,
-          firstName:   s.first_name,
-          lastName:    s.last_name,
-          nationality: '',
+          firstName:            s.first_name,
+          lastName:             s.last_name,
+          nationality:          '',
+          dbsCertificateNumber: s.dbs_certificate_number ?? '',
+          dbsOnUpdateService:   s.dbs_on_update_service,
+          safeguardingCertified: s.safeguarding_certified,
         }))
+        setIdVerified(s.id_verified)
+        setIdVerifiedAt(s.id_verified_at ?? null)
       }
       setLoading(false)
       return
@@ -259,6 +276,8 @@ export default function EditProfileScreen() {
             nationality:      data.nationality  ?? '',
             playingLevel:     data.league_level ?? '',
             performanceLevel: data.skill_level  ?? '',
+            // player accounts don't use DBS fields
+            dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
           })
           immutableRef.current = {
             primaryPosition: data.primary_position   ?? '',
@@ -269,10 +288,15 @@ export default function EditProfileScreen() {
           // Scout profile fields
           setForm(prev => ({
             ...prev,
-            firstName:   data.first_name   ?? '',
-            lastName:    data.last_name    ?? '',
-            nationality: data.nationality  ?? '',
+            firstName:            data.first_name   ?? '',
+            lastName:             data.last_name    ?? '',
+            nationality:          data.nationality  ?? '',
+            dbsCertificateNumber: data.dbs_certificate_number ?? '',
+            dbsOnUpdateService:   data.dbs_on_update_service  ?? false,
+            safeguardingCertified: data.safeguarding_certified ?? false,
           }))
+          setIdVerified(data.id_verified ?? false)
+          setIdVerifiedAt(data.id_verified_at ?? null)
         }
       }
       setLoading(false)
@@ -341,6 +365,19 @@ export default function EditProfileScreen() {
         league_level:             form.playingLevel     || undefined,
         skill_level:              form.performanceLevel || undefined,
         profile_completion_score: score,
+      }
+    } else {
+      // Scout DBS / verification fields
+      const certNum = form.dbsCertificateNumber.trim()
+      updates = {
+        ...updates,
+        dbs_certificate_number: certNum || null,
+        dbs_on_update_service:  form.dbsOnUpdateService,
+        safeguarding_certified: form.safeguardingCertified,
+        safeguarding_certified_at: form.safeguardingCertified ? new Date().toISOString() : null,
+        safeguarding_expiry: form.safeguardingCertified
+          ? new Date(Date.now() + 2 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          : null,
       }
     }
 
@@ -498,6 +535,143 @@ export default function EditProfileScreen() {
           onPress={() => openPicker('Nationality', NATIONALITIES, 'nationality')}
         />
 
+        {/* ── Identity & DBS (scouts only) ── */}
+        {!isPlayer && (
+          <>
+            {/* Section header */}
+            <View style={styles.dbsSectionHeader}>
+              <Text style={styles.dbsSectionTitle}>Identity &amp; DBS</Text>
+              <TouchableOpacity
+                style={styles.infoBtn}
+                onPress={() => setDbsInfoVisible(true)}
+                hitSlop={12}
+                activeOpacity={0.7}
+              >
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Circle cx={12} cy={12} r={10} stroke={Colors.textSecondary} strokeWidth={1.5} />
+                  <Path d="M12 16v-4M12 8h.01" stroke={Colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.dbsDivider} />
+
+            {/* Identity verification — read-only */}
+            <FieldLabel label="Identity verification" hint="Verified by Tranxfer Market — not editable" />
+            <View style={[styles.input, styles.statusRow]}>
+              {idVerified ? (
+                <>
+                  <Text style={[styles.statusIcon, { color: Colors.brand }]}>✓</Text>
+                  <Text style={[styles.inputText, { color: Colors.brand }]}>Verified</Text>
+                  {idVerifiedAt && (
+                    <Text style={[styles.inputText, { color: Colors.textMuted, fontSize: 13 }]}>
+                      {'  '}{new Date(idVerifiedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={[styles.inputText, { color: Colors.textMuted }]}>Not yet verified</Text>
+              )}
+            </View>
+
+            {/* DBS certificate number */}
+            <FieldLabel
+              label="DBS certificate number"
+              hint="12-digit reference on your Enhanced DBS certificate"
+            />
+            <TextInput
+              style={[styles.input, styles.inputText]}
+              value={form.dbsCertificateNumber}
+              onChangeText={v => setForm(p => ({ ...p, dbsCertificateNumber: v.replace(/[^0-9]/g, '') }))}
+              placeholder="e.g. 001234567890"
+              placeholderTextColor="#909090"
+              keyboardType="number-pad"
+              maxLength={12}
+            />
+            {form.dbsCertificateNumber.length > 0 && form.dbsCertificateNumber.length < 12 && (
+              <Text style={styles.fieldHintWarn}>
+                {12 - form.dbsCertificateNumber.length} more digit{form.dbsCertificateNumber.length < 11 ? 's' : ''} needed
+              </Text>
+            )}
+
+            {/* DBS Update Service */}
+            <FieldLabel
+              label="DBS Update Service"
+              hint="Are you registered on the DBS Update Service?"
+            />
+            <View style={styles.toggleRow}>
+              {[true, false].map(val => (
+                <TouchableOpacity
+                  key={String(val)}
+                  style={[styles.toggleBtn, form.dbsOnUpdateService === val && styles.toggleBtnActive]}
+                  onPress={() => setForm(p => ({ ...p, dbsOnUpdateService: val }))}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.toggleText, form.dbsOnUpdateService === val && styles.toggleTextActive]}>
+                    {val ? 'YES' : 'NO'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* FA Safeguarding */}
+            <FieldLabel
+              label="FA Safeguarding course"
+              hint="Have you completed the FA Safeguarding Children online course?"
+            />
+            <View style={styles.toggleRow}>
+              {[true, false].map(val => (
+                <TouchableOpacity
+                  key={String(val)}
+                  style={[styles.toggleBtn, form.safeguardingCertified === val && styles.toggleBtnActive]}
+                  onPress={() => setForm(p => ({ ...p, safeguardingCertified: val }))}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.toggleText, form.safeguardingCertified === val && styles.toggleTextActive]}>
+                    {val ? 'YES' : 'NO'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* DBS status indicator */}
+            <FieldLabel label="DBS status" />
+            {(() => {
+              const cert = form.dbsCertificateNumber.length === 12
+              const onUpdate = form.dbsOnUpdateService
+              if (idVerified && cert && onUpdate) {
+                return (
+                  <View style={[styles.input, styles.statusRow]}>
+                    <Text style={[styles.statusIcon, { color: Colors.brand }]}>✓</Text>
+                    <Text style={[styles.inputText, { color: Colors.brand }]}>Ready for verification — we'll check shortly</Text>
+                  </View>
+                )
+              }
+              if (cert && !onUpdate) {
+                return (
+                  <View style={[styles.input, styles.statusRow]}>
+                    <Text style={styles.statusIcon}>⚠</Text>
+                    <Text style={[styles.inputText, { color: '#F5A623', flex: 1 }]}>You must be on the DBS Update Service — tap ℹ for details</Text>
+                  </View>
+                )
+              }
+              if (cert && onUpdate) {
+                return (
+                  <View style={[styles.input, styles.statusRow]}>
+                    <Text style={styles.statusIcon}>⏳</Text>
+                    <Text style={[styles.inputText, { color: Colors.textSecondary }]}>Pending — we'll verify your Update Service status</Text>
+                  </View>
+                )
+              }
+              return (
+                <View style={[styles.input, styles.statusRow]}>
+                  <Text style={styles.statusIcon}>○</Text>
+                  <Text style={[styles.inputText, { color: Colors.textMuted }]}>Not started — enter your details above</Text>
+                </View>
+              )
+            })()}
+          </>
+        )}
+
         {isPlayer && (
           <>
             {/* Playing level */}
@@ -572,6 +746,8 @@ export default function EditProfileScreen() {
           onClose={() => setPickerVisible(false)}
         />
       )}
+
+      <DbsInfoSheet visible={dbsInfoVisible} onClose={() => setDbsInfoVisible(false)} />
     </ScreenBackground>
   )
 }
@@ -739,4 +915,71 @@ const styles = StyleSheet.create({
     letterSpacing: 0.32,
     fontWeight: '600',
   },
+
+  // ── DBS section ──
+  dbsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.xl,
+    marginBottom: 4,
+  },
+  dbsSectionTitle: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 16,
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  infoBtn: {
+    padding: 4,
+  },
+  dbsDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusIcon: {
+    fontSize: 16,
+    color: Colors.textMuted,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  toggleBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#4f4f4f',
+    backgroundColor: 'rgba(0,0,0,0.31)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleBtnActive: {
+    borderColor: Colors.brand,
+    backgroundColor: 'rgba(0,255,135,0.08)',
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: Colors.textMuted,
+  },
+  toggleTextActive: {
+    color: Colors.brand,
+  },
+  fieldHintWarn: {
+    fontSize: 12,
+    color: '#F5A623',
+    letterSpacing: 0.24,
+    marginTop: 4,
+  },
 })
+

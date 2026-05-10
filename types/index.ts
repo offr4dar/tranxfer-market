@@ -96,9 +96,23 @@ export interface ScoutProfile {
   bio?: string
   logo_url?: string
   is_verified: boolean
-  clearance_check?: boolean
+  clearance_check?: boolean       // legacy — use dbs_verified instead
   created_at: string
   updated_at: string
+
+  // ── Layer 1: Identity & DBS verification ──
+  id_verified: boolean
+  id_verified_at?: string | null
+  dbs_certificate_number?: string | null   // PRIVATE — never display
+  dbs_issue_date?: string | null
+  dbs_on_update_service: boolean
+  dbs_verified: boolean
+  dbs_verified_at?: string | null
+  dbs_expiry_reminder?: string | null
+  safeguarding_certified: boolean
+  safeguarding_certified_at?: string | null
+  safeguarding_expiry?: string | null
+  layer1_verified: boolean                 // computed: all three checks passed
 }
 
 // ─── Endorsements ─────────────────────────────────────────────────────────────
