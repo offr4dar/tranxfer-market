@@ -1239,16 +1239,19 @@ export default function OnboardingScreen() {
         <ImageBackground source={require('../../assets/bg_onboarding.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <LinearGradient colors={['rgba(0,0,0,0.44)', 'rgba(155,155,155,0)']} style={StyleSheet.absoluteFill} />
 
-        <View style={[st.root, { paddingTop: Math.max(insets.top + 20, 60) }]}>
+        <View style={[st.root, { paddingTop: insets.top + 10 + 24 + 14 + 12 }]}>
 
-          {/* Step dots — 6 for scouts, 5 for players; bleeds full-width beyond parent H_PAD */}
-          <View style={{ marginHorizontal: -H_PAD }}>
+          {/* Step dots — fixed header bar, matches main-app header style */}
+          <View style={[
+            st.stepBar,
+            { paddingTop: insets.top + 10 },
+          ]}>
             <StepRow
               step={displayStep}
               opacities={dotOpacities}
               translates={dotTranslates}
               greyDot={undefined}
-              total={isScout ? 6 : 5}
+              total={5}
             />
           </View>
 
@@ -1278,6 +1281,18 @@ export default function OnboardingScreen() {
 
 const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent', paddingHorizontal: H_PAD },
+  stepBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#003B1F',
+    paddingBottom: 14,
+    paddingHorizontal: H_PAD,
+  },
   slideArea: { flex: 1, overflow: 'hidden' },
   panel: { flex: 1 },
   panelAbsolute: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
