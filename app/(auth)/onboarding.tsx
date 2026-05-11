@@ -983,6 +983,10 @@ export default function OnboardingScreen() {
 
   const update = (p: Partial<WizardData>) => { setData(d => ({ ...d, ...p })); setError('') }
 
+  // Per-step scroll position memory
+  const scrollRefs    = useRef<Array<ScrollView | null>>(Array(5).fill(null))
+  const scrollOffsets = useRef<number[]>(Array(5).fill(0))
+
   const animateStep = (dir: 1 | -1, next: number) => {
     if (inTrans) return
     // Panels: no parallax — both travel full width simultaneously
@@ -1017,16 +1021,20 @@ export default function OnboardingScreen() {
       Animated.timing(incomingX, { toValue: 0, duration: D, easing: ease, useNativeDriver: true }),
       Animated.timing(currentOpacity, { toValue: 0, duration: D * 0.35, delay: D * 0.65, useNativeDriver: true }),
     ]).start(() => {
+      // Save the scroll position of the step we're leaving
+      scrollOffsets.current[step] = scrollOffsets.current[step] ?? 0
       // 1. Update step state — React schedules a re-render of the current panel with new content
       setStep(next)
       currentX.setValue(0)
       incomingX.setValue(0)
       // 2. Wait for React to commit that render, THEN reveal the current panel and unmount incoming
-      //    Without this, setValue(1) races ahead of setStep() and the old content flashes for a frame
       requestAnimationFrame(() => {
         currentOpacity.setValue(1)
         setPendingStep(null)
         setInTrans(false)
+        // Restore scroll position for the incoming step
+        const target = scrollOffsets.current[next] ?? 0
+        scrollRefs.current[next]?.scrollTo({ y: target, animated: false })
       })
     })
   }
@@ -1174,9 +1182,12 @@ export default function OnboardingScreen() {
 
   const renderPanel = (s: number, isActive = false) => (
     <ScrollView
+      ref={ref => { scrollRefs.current[s] = ref }}
       contentContainerStyle={st.panelScroll}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      onScroll={e => { scrollOffsets.current[s] = e.nativeEvent.contentOffset.y }}
+      scrollEventThrottle={16}
     >
       {/* Title */}
       <View style={st.titleBlock}>
