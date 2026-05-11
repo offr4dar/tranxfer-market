@@ -1109,8 +1109,24 @@ export default function OnboardingScreen() {
         gender:         data.gender || null,
         preferred_foot: data.foot   || null,
       }
-      if (data.role === 'player') payload.age = parseInt(data.age)
-      if (data.role === 'scout') payload.scout_type = data.scoutType ?? 'club_scout'
+      if (data.role === 'player') {
+        payload.age = parseInt(data.age)
+      }
+      if (data.role === 'scout') {
+        payload.scout_type        = data.scoutType ?? 'club_scout'
+        payload.affiliated_club   = data.affiliatedClub  || null
+        payload.scouting_network  = data.scoutingNetwork || null
+        payload.years_experience  = data.yearsExperience ? parseInt(data.yearsExperience) : null
+        payload.clearance_check   = data.dbsConfirmed
+        payload.clearance_number  = data.clearanceNumber || null
+        payload.league_level      = data.leagueLevel     || null
+        payload.positions_seeking = data.positionsSeeking.length > 0 ? data.positionsSeeking : null
+        payload.age_range_min     = data.ageRangeMin ? parseInt(data.ageRangeMin) : null
+        payload.age_range_max     = data.ageRangeMax ? parseInt(data.ageRangeMax) : null
+        payload.phone             = data.phone    || null
+        payload.country           = data.country  || null
+        payload.bio               = data.bio       || null
+      }
 
       const result = await signUp.create({
         emailAddress: data.email,
@@ -1122,7 +1138,12 @@ export default function OnboardingScreen() {
       if (result.status === 'complete' && setActive) {
         // Rare: verification disabled in Clerk dashboard — save profile immediately
         payload.user_id = result.createdUserId
-        await supabase.from(table).upsert(payload)
+        const { error: upsertError } = await supabase.from(table).upsert(payload)
+        if (upsertError) {
+          setError('Account created but profile save failed: ' + upsertError.message)
+          setLoading(false)
+          return
+        }
         await setActive({ session: result.createdSessionId })
         router.replace('/(tabs)/feed')
       } else {
