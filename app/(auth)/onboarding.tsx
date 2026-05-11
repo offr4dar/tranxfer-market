@@ -1239,7 +1239,7 @@ export default function OnboardingScreen() {
         <ImageBackground source={require('../../assets/bg_onboarding.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <LinearGradient colors={['rgba(0,0,0,0.44)', 'rgba(155,155,155,0)']} style={StyleSheet.absoluteFill} />
 
-        <View style={[st.root, { paddingTop: insets.top + 10 + 24 + 14 + 12 }]}>
+        <View style={[st.root, { paddingTop: insets.top + 10 + 24 + 24 + 12 }]}>
 
           {/* Step dots — fixed header bar, matches main-app header style */}
           <View style={[
@@ -1290,7 +1290,7 @@ const st = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     borderBottomWidth: 1,
     borderBottomColor: '#003B1F',
-    paddingBottom: 14,
+    paddingBottom: 24,
     paddingHorizontal: H_PAD,
   },
   slideArea: { flex: 1, overflow: 'hidden' },
