@@ -3,15 +3,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDevRole, DevRole } from '@/lib/devRole'
 
 const LABELS: Record<DevRole, string> = {
-  player:            '👤  PLAYER',
-  scout_free:        '🔍  SCOUT FREE',
-  scout_subscribed:  '🔍  SCOUT PRO',
+  player:             '👤  PLAYER',
+  scout_free:         '🔍  SCOUT FREE',
+  scout_subscribed:   '🔍  SCOUT PRO',
+  scout_unverified:   '🆕  SCOUT NEW',
 }
 
 const COLORS: Record<DevRole, string> = {
-  player:           '#8AABFF',
-  scout_free:       '#C49B1E',
-  scout_subscribed: '#00FF87',
+  player:             '#8AABFF',
+  scout_free:         '#C49B1E',
+  scout_subscribed:   '#00FF87',
+  scout_unverified:   '#E85D75',
 }
 
 export default function DevRoleSwitcher() {

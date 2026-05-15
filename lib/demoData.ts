@@ -138,6 +138,38 @@ export const DEMO_SCOUT_FREE_PROFILE = {
   layer1_verified: false,
 }
 
+// Scout at Step 2 — identity not yet verified (shows full flow from the start)
+export const DEMO_SCOUT_UNVERIFIED_PROFILE = {
+  id: 'demo-scout-unverified-001',
+  user_id: 'demo-user-scout-unverified',
+  first_name: 'James',
+  last_name: 'Okafor',
+  scout_type: 'freelance_scout' as const,
+  organisation_name: 'Independent Scout',
+  regions_covered: ['Midlands', 'North West'],
+  specialisms: ['Forwards', 'Academy'],
+  years_experience: 2,
+  league_level: 'Step 5',
+  is_verified: false,
+  clearance_check: false,
+  subscription_tier: 'free',
+  created_at: '2025-05-01T00:00:00Z',
+  updated_at: '2025-05-15T00:00:00Z',
+  // New scout — nothing verified yet
+  id_verified: false,
+  id_verified_at: null,
+  dbs_certificate_number: null,
+  dbs_issue_date: null,
+  dbs_on_update_service: false,
+  dbs_verified: false,
+  dbs_verified_at: null,
+  dbs_expiry_reminder: null,
+  safeguarding_certified: false,
+  safeguarding_certified_at: null,
+  safeguarding_expiry: null,
+  layer1_verified: false,
+}
+
 export const DEMO_SCOUT_PRO_PROFILE = {
   id: 'demo-scout-pro-001',
   user_id: 'demo-user-scout-pro',

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 
-export type DevRole = 'player' | 'scout_free' | 'scout_subscribed'
+export type DevRole = 'player' | 'scout_free' | 'scout_subscribed' | 'scout_unverified'
 
 const CYCLE: DevRole[] = ['player', 'scout_free', 'scout_subscribed']
 

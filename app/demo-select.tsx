@@ -44,6 +44,15 @@ const ROLES: {
     description: 'Full access to all player data, videos, performance entries, and direct messaging.',
     tags: ['Full Access', 'Video', 'Messaging'],
   },
+  {
+    role: 'scout_unverified',
+    label: 'Scout — New',
+    sublabel: 'James Okafor · Just signed up',
+    emoji: '🆕',
+    accent: '#E85D75',
+    description: 'Walk through the full verification flow — identity check, DBS, and FA safeguarding from Step 2.',
+    tags: ['Verify Flow', 'Step 2 Active', 'Demo Gate'],
+  },
 ]
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -58,7 +67,12 @@ export default function DemoSelectScreen() {
 
   const handlePickRole = (role: DevRole) => {
     enterDemo(role)
-    router.replace('/(tabs)/profile')
+    // New scouts go to verification gate; all others go to main app
+    if (role === 'scout_unverified' || role === 'scout_free') {
+      router.replace('/verify' as any)
+    } else {
+      router.replace('/(tabs)/profile')
+    }
   }
 
   const handleSignIn = () => {

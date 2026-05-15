@@ -11,7 +11,7 @@ import { Colors, Spacing, Radius } from '@/constants/theme'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@clerk/clerk-expo'
 import { useDevRole } from '@/lib/devRole'
-import { DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
+import { DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_SCOUT_UNVERIFIED_PROFILE } from '@/lib/demoData'
 import { ScoutProfile } from '@/types'
 
 // Shared Components
@@ -76,6 +76,8 @@ export default function VerifyScreen() {
   const [isOnUpdateService, setIsOnUpdateService] = useState<boolean | null>(null)
   const [safeguardingDone, setSafeguardingDone] = useState(false)
   const [safeguardingRef, setSafeguardingRef] = useState('')
+  // Step 2 mock state: 'idle' | 'verifying' | 'submitted'
+  const [idCheckState, setIdCheckState] = useState<'idle' | 'verifying' | 'submitted'>('idle')
 
   useEffect(() => {
     fetchProfile()
@@ -85,7 +87,13 @@ export default function VerifyScreen() {
     setLoading(true)
     try {
       if (isDemoMode) {
-        setProfile(devRole === 'scout_subscribed' ? (DEMO_SCOUT_PRO_PROFILE as any) : (DEMO_SCOUT_FREE_PROFILE as any))
+        if (devRole === 'scout_subscribed') {
+          setProfile(DEMO_SCOUT_PRO_PROFILE as any)
+        } else if (devRole === 'scout_unverified') {
+          setProfile(DEMO_SCOUT_UNVERIFIED_PROFILE as any)
+        } else {
+          setProfile(DEMO_SCOUT_FREE_PROFILE as any)
+        }
       } else if (userId) {
         const { data, error } = await supabase
           .from('scout_profiles')
@@ -243,14 +251,26 @@ export default function VerifyScreen() {
             badge={step2Done ? "Done" : activeStep === 2 ? "Next" : "Locked"}
             expanded={activeStep === 2}
           >
+            {/* Step 2 expand content */}
             <View style={st.expandContent}>
-              <View style={st.infoBox}>
-                <Text style={st.infoBoxTitle}>What happens</Text>
-                <Text style={st.infoBoxText}>
-                  You'll be asked to photograph your passport or driving licence, then take a live selfie. Our provider checks they match.
-                </Text>
-              </View>
-              <Text style={st.freeLabel}>FREE — paid by Tranxfer Market</Text>
+              {idCheckState === 'submitted' ? (
+                <View style={[st.infoBox, { borderColor: 'rgba(0,255,135,0.2)' }]}>
+                  <Text style={[st.infoBoxTitle, { color: Colors.brand }]}>Submitted ✓</Text>
+                  <Text style={st.infoBoxText}>
+                    We're checking your documents. This usually takes a few seconds.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={st.infoBox}>
+                    <Text style={st.infoBoxTitle}>What happens</Text>
+                    <Text style={st.infoBoxText}>
+                      You'll be asked to photograph your passport or driving licence, then take a live selfie. Our provider checks they match.
+                    </Text>
+                  </View>
+                  <Text style={st.freeLabel}>FREE — paid by Tranxfer Market</Text>
+                </>
+              )}
             </View>
           </StepItem>
 
@@ -396,15 +416,32 @@ export default function VerifyScreen() {
         {/* Primary CTA */}
         <View style={st.ctaContainer}>
           <Button
-            label={allDone ? 'CONTINUE TO APP' : 
-                   activeStep === 2 ? 'VERIFY MY IDENTITY' :
-                   activeStep === 3 ? 'SUBMIT DBS DETAILS' :
-                   'CONFIRM SAFEGUARDING'}
+            label={
+              allDone ? 'CONTINUE TO APP' :
+              activeStep === 2 && idCheckState === 'verifying' ? 'LAUNCHING…' :
+              activeStep === 2 && idCheckState === 'submitted' ? 'CHECKING…' :
+              activeStep === 2 ? 'VERIFY MY IDENTITY' :
+              activeStep === 3 ? 'SUBMIT DBS DETAILS' :
+              'CONFIRM SAFEGUARDING'
+            }
             onPress={() => {
-              if (allDone) {
-                router.replace('/(tabs)/feed')
+            if (allDone) {
+                router.replace('/(tabs)/profile' as any)
               } else if (activeStep === 2) {
-                Alert.alert('Verification Coming Soon', "Identity verification is being finalised. For now, please proceed to the next steps if possible or check back soon.")
+                if (isDemoMode) {
+                  // Mock: spinner → submitted → advance
+                  setIdCheckState('verifying')
+                  setTimeout(() => {
+                    setIdCheckState('submitted')
+                    setTimeout(() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+                      setProfile(prev => prev ? { ...prev, id_verified: true } : null)
+                      setIdCheckState('idle')
+                    }, 2000)
+                  }, 1500)
+                } else {
+                  Alert.alert('Coming Soon', 'Identity verification via ComplyCube will be available once the SDK integration is complete.')
+                }
               } else if (activeStep === 3) {
                 handleDbsSubmit()
               } else if (activeStep === 4) {
