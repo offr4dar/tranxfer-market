@@ -77,7 +77,7 @@ function TabsContent() {
       initialRouteName="profile"
       screenOptions={{
         headerShown: false,
-        lazy: false,
+        lazy: true,
       }}
     >
       {/* ── Scout-only tabs ───────────────────────────────────────────────── */}

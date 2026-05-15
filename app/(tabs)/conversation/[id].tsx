@@ -54,6 +54,7 @@ export default function ConversationScreen() {
   }, [id, userId])
 
   useEffect(() => {
+    if (!id) return   // not yet navigated to a real conversation
     fetchMessages()
 
     // Real-time subscription

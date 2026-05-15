@@ -8,7 +8,8 @@ import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { Colors, Spacing } from '@/constants/theme'
+import { useDevRole } from '@/lib/devRole'
 
 interface Conversation {
   conversation_id: string
@@ -34,17 +35,19 @@ function timeAgo(iso: string | null): string {
 
 export default function MessagesScreen() {
   const { userId } = useAuth()
+  const { isDemoMode } = useDevRole()
   const router = useRouter()
   const [convos, setConvos]   = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchConvos = useCallback(async () => {
+    if (isDemoMode) { setLoading(false); return }  // demo: no real conversations
     if (!userId) return
     const { data, error } = await supabase.rpc('get_user_conversations', { p_user_id: userId })
     if (error) console.error('fetchConvos:', error.message)
     setConvos((data as Conversation[]) ?? [])
     setLoading(false)
-  }, [userId])
+  }, [userId, isDemoMode])
 
   useEffect(() => { fetchConvos() }, [fetchConvos])
 

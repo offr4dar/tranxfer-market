@@ -9,6 +9,7 @@ import { useSignUp, useAuth, useUser, useClerk } from '@clerk/clerk-expo'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import MaskedView from '@react-native-masked-view/masked-view'
+import GradientTitle from '@/components/GradientTitle'
 import Svg, { Path, Text as SvgText } from 'react-native-svg'
 import { SvgXml } from 'react-native-svg'
 import { supabase } from '@/lib/supabase'
@@ -170,47 +171,6 @@ const TITLE_SIZE = 50
 const TITLE_LH = TITLE_SIZE * 1.2  // 60px — same ratio as splash
 const TITLE_GAP = -8                // slight pull between lines
 
-function GradientTitle({ text }: { text: string }) {
-  const lines = text.split('\n')
-  if (Platform.OS === 'web') {
-    return (
-      <View>
-        {lines.map((l, i) => (
-          <Text key={i} style={[gt.text, i < lines.length - 1 && { marginBottom: TITLE_GAP },
-          {
-            background: 'linear-gradient(214deg, #ffffff 31%, #82c3a5 92%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
-          } as any]}>
-            {l}
-          </Text>
-        ))}
-      </View>
-    )
-  }
-  // Native: MaskedView per line so each clips correctly
-  return (
-    <View style={{ alignSelf: 'stretch' }}>
-      {lines.map((l, i) => (
-        <MaskedView
-          key={i}
-          style={[{ height: TITLE_LH }, i < lines.length - 1 && { marginBottom: TITLE_GAP }]}
-          maskElement={
-            <View style={{ backgroundColor: 'transparent', height: TITLE_LH, justifyContent: 'center' }}>
-              <Text style={gt.text}>{l}</Text>
-            </View>
-          }
-        >
-          <LinearGradient
-            colors={['#ffffff', '#82c3a5']}
-            start={{ x: 0.7, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{ width: '100%', height: TITLE_LH }}
-          />
-        </MaskedView>
-      ))}
-    </View>
-  )
-}
 const gt = StyleSheet.create({
   text: {
     fontFamily: 'Anton_400Regular',
@@ -983,9 +943,15 @@ export default function OnboardingScreen() {
 
   const update = (p: Partial<WizardData>) => { setData(d => ({ ...d, ...p })); setError('') }
 
-  // Per-step scroll position memory
-  const scrollRefs    = useRef<Array<ScrollView | null>>(Array(5).fill(null))
-  const scrollOffsets = useRef<number[]>(Array(5).fill(0))
+  // Per-step scroll refs — used to scroll to top on every step change
+  const scrollRefs = useRef<Array<ScrollView | null>>(Array(5).fill(null))
+  // After step commits to layout, always scroll to top
+  useEffect(() => {
+    const id = setTimeout(() => {
+      scrollRefs.current[step]?.scrollTo({ y: 0, animated: false })
+    }, 20)
+    return () => clearTimeout(id)
+  }, [step])
 
   const animateStep = (dir: 1 | -1, next: number) => {
     if (inTrans) return
@@ -1021,20 +987,14 @@ export default function OnboardingScreen() {
       Animated.timing(incomingX, { toValue: 0, duration: D, easing: ease, useNativeDriver: true }),
       Animated.timing(currentOpacity, { toValue: 0, duration: D * 0.35, delay: D * 0.65, useNativeDriver: true }),
     ]).start(() => {
-      // Save the scroll position of the step we're leaving
-      scrollOffsets.current[step] = scrollOffsets.current[step] ?? 0
-      // 1. Update step state — React schedules a re-render of the current panel with new content
+      // Commit new step — the useEffect above handles scrolling after render
       setStep(next)
       currentX.setValue(0)
       incomingX.setValue(0)
-      // 2. Wait for React to commit that render, THEN reveal the current panel and unmount incoming
       requestAnimationFrame(() => {
         currentOpacity.setValue(1)
         setPendingStep(null)
         setInTrans(false)
-        // Restore scroll position for the incoming step
-        const target = scrollOffsets.current[next] ?? 0
-        scrollRefs.current[next]?.scrollTo({ y: target, animated: false })
       })
     })
   }
@@ -1186,8 +1146,7 @@ export default function OnboardingScreen() {
       contentContainerStyle={st.panelScroll}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
-      onScroll={e => { scrollOffsets.current[s] = e.nativeEvent.contentOffset.y }}
-      scrollEventThrottle={16}
+
     >
       {/* Title */}
       <View style={st.titleBlock}>

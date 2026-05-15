@@ -8,68 +8,11 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
-import MaskedView from '@react-native-masked-view/masked-view'
+import GradientTitle from '@/components/GradientTitle'
 
 import { Colors } from '@/constants/theme'
 
 const H_PAD = 20
-
-// ─── Gradient title ───────────────────────────────────────────────────────────
-const TITLE_SIZE = 50
-const TITLE_LH   = TITLE_SIZE * 1.2
-const TITLE_GAP  = -8
-
-function GradientTitle({ text }: { text: string }) {
-  const lines = text.split('\n')
-  if (Platform.OS === 'web') {
-    return (
-      <View>
-        {lines.map((l, i) => (
-          <Text
-            key={i}
-            style={[gt.text, i < lines.length - 1 && { marginBottom: TITLE_GAP }, {
-              background: 'linear-gradient(214deg, #ffffff 31%, #82c3a5 92%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            } as any]}
-          >{l}</Text>
-        ))}
-      </View>
-    )
-  }
-  return (
-    <View style={{ alignSelf: 'stretch' }}>
-      {lines.map((l, i) => (
-        <MaskedView
-          key={i}
-          style={[{ height: TITLE_LH }, i < lines.length - 1 && { marginBottom: TITLE_GAP }]}
-          maskElement={
-            <View style={{ backgroundColor: 'transparent', height: TITLE_LH, justifyContent: 'center' }}>
-              <Text style={gt.text}>{l}</Text>
-            </View>
-          }
-        >
-          <LinearGradient
-            colors={['#ffffff', '#82c3a5']}
-            start={{ x: 0.7, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{ width: '100%', height: TITLE_LH }}
-          />
-        </MaskedView>
-      ))}
-    </View>
-  )
-}
-const gt = StyleSheet.create({
-  text: {
-    fontFamily: 'Anton_400Regular',
-    fontSize: TITLE_SIZE,
-    lineHeight: TITLE_LH,
-    color: '#fff',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-})
 
 type Step = 'email' | 'code'
 

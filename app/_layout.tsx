@@ -8,6 +8,7 @@ import { Colors } from '@/constants/theme'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
 import { DevRoleProvider, useDevRole } from '@/lib/devRole'
+import { supabase } from '@/lib/supabase'
 
 // Prevent the native splash from auto-hiding — we control when to hide it.
 // This must be called at module level (before any component renders).
@@ -31,8 +32,8 @@ const tokenCache = {
 
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
-  const { isLoaded, isSignedIn } = useAuth()
-  const { isDemoMode } = useDevRole()
+  const { isLoaded, isSignedIn, userId } = useAuth()
+  const { isDemoMode, devRole } = useDevRole()
   const segments = useSegments()
   const router = useRouter()
 
@@ -41,10 +42,11 @@ function AuthGuard() {
 
     const segs         = segments as string[]
     const inAuthGroup  = segs[0] === '(auth)'
-    const onSplash     = segs[0] === 'splash'
-    const onIndex      = !segs[0]
-    const onDemoSelect = segs[0] === 'demo-select'
-    const onOnboarding = segs[1] === 'onboarding'
+    const onVerify      = segs[0] === 'verify'
+    const onSplash      = segs[0] === 'splash'
+    const onIndex       = !segs[0]
+    const onDemoSelect  = segs[0] === 'demo-select'
+    const onOnboarding  = segs[1] === 'onboarding'
 
     // Entry point → always show demo-select first for everyone
     if (onIndex || onSplash) {
@@ -52,22 +54,48 @@ function AuthGuard() {
       return
     }
 
-    // On demo-select → always allow, never redirect away
     if (onDemoSelect) return
 
-    // In demo mode → keep in app; if somehow in auth group, push to profile
-    if (isDemoMode) {
-      if (inAuthGroup) router.replace('/(tabs)/profile')
-      return
+    // Helper to determine where to send the user based on role and verification
+    const getTargetRoute = async () => {
+      let isScout = false
+      let isVerified = false
+
+      if (isDemoMode) {
+        isScout = devRole.includes('scout')
+        isVerified = devRole === 'scout_subscribed'
+      } else if (isSignedIn && userId) {
+        const { data } = await supabase
+          .from('scout_profiles')
+          .select('layer1_verified')
+          .eq('user_id', userId)
+          .single()
+        if (data) {
+          isScout = true
+          isVerified = data.layer1_verified
+        }
+      }
+
+      if (isScout && !isVerified) return '/verify'
+      return '/(tabs)/profile'
     }
 
-    // Standard auth guard for real (non-demo) users
-    if (isSignedIn && inAuthGroup && !onOnboarding) {
-      router.replace('/(tabs)/profile')
-    } else if (!isSignedIn && !inAuthGroup) {
-      router.replace('/(auth)/welcome')
+    const syncRoute = async () => {
+      if (isSignedIn || isDemoMode) {
+        if (inAuthGroup && !onOnboarding) {
+          const target = await getTargetRoute()
+          if (segments[0] !== target.replace(/^\//, '')) {
+             router.replace(target as any)
+          }
+        }
+        // Note: no redirect when already inside (tabs) — tab navigation handles itself
+      } else if (!inAuthGroup) {
+        router.replace('/(auth)/welcome')
+      }
     }
-  }, [isLoaded, isSignedIn, isDemoMode, segments])
+
+    syncRoute()
+  }, [isLoaded, isSignedIn, isDemoMode, segments, devRole])
 
   return null
 }
@@ -114,6 +142,7 @@ export default function RootLayout() {
             <Stack.Screen name="player/[id]"              options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="player/performance/[id]"  options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="upgrade"                  options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="verify"                   options={{ headerShown: false, animation: 'slide_from_right' }} />
           </Stack>
         </View>
       </DevRoleProvider>

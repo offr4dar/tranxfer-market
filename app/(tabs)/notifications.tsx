@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
+import { useDevRole } from '@/lib/devRole'
 
 interface Notification {
   id: string
@@ -56,10 +57,12 @@ function timeAgo(iso: string): string {
 
 export default function NotificationsScreen() {
   const { userId } = useAuth()
+  const { isDemoMode } = useDevRole()
   const [sections, setSections] = useState<{ title: string; data: Notification[] }[]>([])
   const [loading, setLoading]   = useState(true)
 
   const fetchNotifs = useCallback(async () => {
+    if (isDemoMode) { setLoading(false); return }  // demo: no real notifications
     if (!userId) return
     const { data, error } = await supabase
       .from('notifications')
@@ -70,7 +73,7 @@ export default function NotificationsScreen() {
     if (error) console.error('fetchNotifs:', error.message)
     setSections(groupByDate((data as Notification[]) ?? []))
     setLoading(false)
-  }, [userId])
+  }, [userId, isDemoMode])
 
   useEffect(() => { fetchNotifs() }, [fetchNotifs])
 

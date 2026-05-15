@@ -4,6 +4,7 @@ import {
   ScrollView, ActivityIndicator, Animated,
 } from 'react-native'
 import Svg, { Path, Circle, G } from 'react-native-svg'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
@@ -14,114 +15,130 @@ import ScoutInterestChart, { ChartDataPoint } from '@/components/ScoutInterestCh
 import { fetchScoutInterest, ScoutInterestResult } from '@/lib/queries/scout-interest'
 import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
-import DbsInfoSheet from '@/components/DbsInfoSheet'
-import { DevRoleProvider, useDevRole } from '@/lib/devRole'
+import { useDevRole } from '@/lib/devRole'
 import { Colors, Spacing } from '@/constants/theme'
 import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_ENDORSEMENTS } from '@/lib/demoData'
 
-// ─── DBS verification section (scout profile card) ────────────────────────────
-function DbsVerificationSection({ scout }: { scout: typeof DEMO_SCOUT_FREE_PROFILE | typeof DEMO_SCOUT_PRO_PROFILE }) {
-  const [sheetVisible, setSheetVisible] = useState(false)
-  const s = scout as any
-
-  type VerifyStatus = 'verified' | 'pending' | 'not_started'
-
-  function idStatus(): VerifyStatus {
-    return s.id_verified ? 'verified' : 'not_started'
-  }
-  function dbsStatus(): VerifyStatus {
-    if (s.dbs_verified) return 'verified'
-    if (s.dbs_certificate_number) return 'pending'
-    return 'not_started'
-  }
-  function safeguardStatus(): VerifyStatus {
-    if (s.safeguarding_certified) return 'verified'
-    return 'not_started'
-  }
-
-  function StatusBadge({ status, label }: { status: VerifyStatus; label: string }) {
-    const colour = status === 'verified' ? Colors.brand : status === 'pending' ? Colors.textSecondary : Colors.textMuted
-    const icon   = status === 'verified' ? '✓' : status === 'pending' ? '⏳' : '○'
-    const text   = status === 'verified' ? 'Verified' : status === 'pending' ? 'Pending' : 'Not completed'
-    return (
-      <View style={dbsStyles.row}>
-        <Text style={dbsStyles.label}>{label}</Text>
-        <View style={dbsStyles.badge}>
-          <Text style={[dbsStyles.icon, { color: colour }]}>{icon}</Text>
-          <Text style={[dbsStyles.badgeText, { color: colour }]}>{text}</Text>
-        </View>
-      </View>
-    )
-  }
-
+// ─── Scout Pro gradient badge ─────────────────────────────────────────────────
+function ScoutProBadge() {
   return (
-    <>
-      {/* Section header */}
-      <View style={dbsStyles.header}>
-        <Text style={dbsStyles.headerTitle}>Identity & DBS</Text>
-        <TouchableOpacity onPress={() => setSheetVisible(true)} hitSlop={12} activeOpacity={0.7}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Circle cx={12} cy={12} r={10} stroke={Colors.textSecondary} strokeWidth={1.5} />
-            <Path d="M12 16v-4M12 8h.01" stroke={Colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-      </View>
-
-      {s.layer1_verified ? (
-        <View style={dbsStyles.row}>
-          <Text style={[dbsStyles.label, { color: Colors.brand, fontWeight: '600' }]}>✓  Fully verified</Text>
-        </View>
-      ) : (
-        <>
-          <StatusBadge status={idStatus()} label="Identity" />
-          <StatusBadge status={dbsStatus()} label="DBS" />
-          <StatusBadge status={safeguardStatus()} label="Safeguarding" />
-        </>
-      )}
-
-      <DbsInfoSheet visible={sheetVisible} onClose={() => setSheetVisible(false)} />
-    </>
+    <LinearGradient
+      colors={['#96895A', '#F0DB8F', '#ffffff', '#D8C581', '#96895A']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={scoutBadgeStyles.wrap}
+    >
+      {/* X logo — same path as FeedIcon in TabIcons */}
+      <Svg width={14} height={Math.round(14 * 20 / 19)} viewBox="0 0 19 20" fill="none">
+        <Path
+          d="M10.3915 17.817L16.2798 16.5811L12.639 9.1573L19 0L13.1117 1.23596L10.6735 4.7191L10.4828 4.75923L9.16412 2.0626L3.18464 3.31461L6.7093 10.4013L0 20L5.97949 18.748L8.66652 14.8636L8.90703 14.8154L10.3915 17.817Z"
+          fill="#7C6F42"
+        />
+      </Svg>
+      <Text style={scoutBadgeStyles.label}>SCOUT PRO</Text>
+    </LinearGradient>
   )
 }
-
-const dbsStyles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-  },
-  label: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    letterSpacing: 0.28,
-  },
-  badge: {
+const scoutBadgeStyles = StyleSheet.create({
+  wrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 5,
+    alignSelf: 'flex-start',
   },
-  icon: {
-    fontSize: 13,
+  label: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 14,
+    color: '#7C6F42',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  badgeText: {
-    fontSize: 13,
-    letterSpacing: 0.26,
-    fontWeight: '600',
+})
+
+// ─── Hexagon verified badge (for scouts) ─────────────────────────────────────
+function HexagonVerifiedBadge() {
+  return (
+    <View style={hexStyles.wrap}>
+      <Svg width={26} height={26} viewBox="0 0 26 26" fill="none">
+        {/* Hexagon shape */}
+        <Path
+          d="M13 1L24.2583 7.25V19.75L13 26L1.74167 19.75V7.25L13 1Z"
+          fill={Colors.brand}
+        />
+        {/* Checkmark */}
+        <Path
+          d="M8 13l3.5 3.5 6.5-7"
+          stroke="#000"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  )
+}
+const hexStyles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+  },
+})
+
+// ─── ID & DBS Verified banner ──────────────────────────────────────────────────
+function VerifiedBanner({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={verifiedStyles.wrap}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={verifiedStyles.left}>
+        <Svg width={31} height={34} viewBox="0 0 31 34" fill="none">
+          <Path
+            d="M19.748 14.2596C20.1732 13.7833 20.1319 13.0524 19.6555 12.6271C19.1791 12.2018 18.4482 12.2432 18.0229 12.7195L13.3795 17.9202L12.0396 16.4195C11.6143 15.9431 10.8833 15.9018 10.407 16.327C9.93066 16.7524 9.88928 17.4833 10.3146 17.9596L12.5169 20.4263C12.7363 20.6721 13.0501 20.8125 13.3795 20.8125C13.7088 20.8125 14.0225 20.6721 14.2419 20.4263L19.748 14.2596Z"
+            fill="#00FF87"
+          />
+          <Path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M15.0312 0C13.5859 0 12.2058 0.472644 9.97981 1.23506L8.85834 1.61897C6.57462 2.40068 4.81216 3.00397 3.5505 3.51653C2.91495 3.77471 2.36857 4.02478 1.92859 4.2803C1.50519 4.52618 1.08043 4.83288 0.791846 5.24404C0.506591 5.65045 0.359101 6.15008 0.266416 6.63105C0.170061 7.13107 0.111956 7.7309 0.0744625 8.4196C4.02021e-08 9.78706 0 11.6604 0 14.0902V16.5597C0 25.9654 7.10405 30.4749 11.3287 32.3204L11.3705 32.3386C11.8943 32.5676 12.3867 32.7826 12.9525 32.9275C13.5499 33.0805 14.1844 33.1458 15.0312 33.1458C15.8781 33.1458 16.5126 33.0805 17.11 32.9275C17.6758 32.7826 18.1682 32.5676 18.6919 32.3386L18.7339 32.3204C22.9585 30.4749 30.0625 25.9654 30.0625 16.5597V14.0905C30.0625 11.6606 30.0625 9.78712 29.988 8.4196C29.9506 7.7309 29.8925 7.13107 29.7961 6.63105C29.7034 6.15008 29.5559 5.65045 29.2707 5.24404C28.9821 4.83288 28.5574 4.52618 28.1339 4.2803C27.6939 4.02478 27.1475 3.77471 26.512 3.51653C25.2503 3.00397 23.4879 2.40068 21.2041 1.61895L20.0827 1.23506C17.8567 0.472644 16.4766 0 15.0312 0ZM10.5305 3.4908C13.0195 2.63878 14.0173 2.3125 15.0312 2.3125C16.0452 2.3125 17.043 2.63878 19.532 3.4908L20.4151 3.79307C22.747 4.5913 24.4476 5.17391 25.6416 5.65898C26.2376 5.9011 26.6694 6.104 26.9725 6.28003C27.1222 6.36693 27.2254 6.43865 27.2941 6.49463C27.3526 6.54205 27.3748 6.56892 27.378 6.57287C27.3809 6.57768 27.4002 6.6097 27.4272 6.6855C27.458 6.772 27.4921 6.89601 27.5254 7.06863C27.5927 7.41802 27.6438 7.89797 27.6789 8.54533C27.7495 9.84217 27.75 11.6524 27.75 14.132V16.5597C27.75 24.5379 21.7839 28.4646 17.8081 30.2013C17.2354 30.4515 16.9047 30.593 16.5365 30.6872C16.1849 30.7772 15.7558 30.8333 15.0312 30.8333C14.3067 30.8333 13.8776 30.7772 13.526 30.6872C13.1578 30.593 12.8271 30.4515 12.2544 30.2013C8.2786 28.4646 2.3125 24.5379 2.3125 16.5597V14.132C2.3125 11.6524 2.31293 9.84217 2.38354 8.54533C2.41878 7.89797 2.46981 7.41802 2.53714 7.06863C2.57041 6.89601 2.60455 6.772 2.63537 6.6855C2.66235 6.60974 2.68151 6.57772 2.68449 6.57288C2.68768 6.56896 2.70994 6.54208 2.76832 6.49463C2.83719 6.43865 2.9403 6.36693 3.08995 6.28003C3.39305 6.104 3.82487 5.9011 4.42087 5.65898C5.6149 5.17391 7.31553 4.5913 9.64744 3.79307L10.5305 3.4908Z"
+            fill="#00FF87"
+          />
+        </Svg>
+        <Text style={verifiedStyles.label}>ID AND DBS{'  '}VERIFIED</Text>
+      </View>
+      {/* Chevron right */}
+      <Svg width={7} height={14} viewBox="0 0 9 16" fill="none">
+        <Path d="M1 1l7 7-7 7" stroke={Colors.brand} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </TouchableOpacity>
+  )
+}
+const verifiedStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0d271a',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.brand,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 })
 
@@ -153,6 +170,62 @@ function GearIcon() {
     </Svg>
   )
 }
+
+// ─── Shared attribute list (green left-border rows) ──────────────────────────
+type AttrItem =
+  | { label: string; value: string; values?: never }
+  | { label: string; values: string[]; value?: never }
+
+function AttrList({ items, style }: { items: AttrItem[]; style?: object }) {
+  return (
+    <View style={[attrListStyles.wrap, style]}>
+      <View style={attrListStyles.inner}>
+        {items.map(item => (
+          <View key={item.label} style={attrListStyles.row}>
+            <Text style={attrListStyles.label}>{item.label}</Text>
+            {item.values
+              ? <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {item.values.map(v => (
+                    <Text key={v} style={attrListStyles.value}>{v}</Text>
+                  ))}
+                </View>
+              : <Text style={[attrListStyles.value, { flex: 1, flexWrap: 'wrap' }]}>{item.value}</Text>
+            }
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+const attrListStyles = StyleSheet.create({
+  wrap: {
+    paddingVertical: Spacing.md,
+  },
+  inner: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.brand,
+    paddingLeft: 20,
+    gap: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#868686',
+    textTransform: 'uppercase',
+    width: 121,
+    flexShrink: 0,
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+})
 
 const RING_R = 31
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
@@ -320,34 +393,37 @@ export default function ProfileScreen() {
       <ScreenHeader />
       <ScrollView contentContainerStyle={styles.content}>
         {/* ── Edit / Settings row ── */}
-        <View style={styles.editRow}>
-          <TouchableOpacity style={styles.editBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile' as any)}>
-            <Text style={styles.editLabel}>Edit Profile</Text>
-            <EditIcon />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/settings' as any)} activeOpacity={0.7} hitSlop={10}>
-            <GearIcon />
-          </TouchableOpacity>
+        <View style={[
+          styles.editRow,
+          (isDemoMode && activeRole === 'scout' && devRole === 'scout_subscribed')
+            ? { justifyContent: 'space-between' }
+            : { justifyContent: 'flex-end' },
+        ]}>
+          {isDemoMode && activeRole === 'scout' && devRole === 'scout_subscribed' && (
+            <ScoutProBadge />
+          )}
+          <View style={styles.editActions}>
+            <TouchableOpacity style={styles.editBtn} activeOpacity={0.7} onPress={() => router.push('/edit-profile' as any)}>
+              <Text style={styles.editLabel}>Edit Profile</Text>
+              <EditIcon />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/settings' as any)} activeOpacity={0.7} hitSlop={10}>
+              <GearIcon />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Avatar hero ── */}
-        <View style={styles.hero}>
+        <View style={[styles.hero, activeRole === 'scout' && { borderBottomWidth: 0 }]}>
           {/* Name block — fills available space */}
           <View style={styles.heroNameBlock}>
-            <Text style={styles.heroFirstName}>{data.first_name}</Text>
-            <Text style={styles.heroLastName}>{data.last_name}</Text>
-
-            {/* Tier badge for scout in demo mode */}
-            {isDemoMode && activeRole === 'scout' && (
-              <View style={[
-                styles.tierBadge,
-                devRole === 'scout_subscribed' ? styles.tierBadgePro : styles.tierBadgeFree,
-              ]}>
-                <Text style={styles.tierBadgeText}>
-                  {devRole === 'scout_subscribed' ? '⭐  SCOUT PRO' : '🔍  SCOUT FREE'}
-                </Text>
+            {isDemoMode && activeRole === 'scout' && devRole === 'scout_free' && (
+              <View style={[styles.tierBadge, styles.tierBadgeFree]}>
+                <Text style={styles.tierBadgeText}>🔍  SCOUT FREE</Text>
               </View>
             )}
+            <Text style={styles.heroFirstName}>{data.first_name}</Text>
+            <Text style={styles.heroLastName}>{data.last_name}</Text>
           </View>
 
           {/* Avatar — floats right */}
@@ -355,55 +431,76 @@ export default function ProfileScreen() {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
-            {data.is_verified && (
+            {data.is_verified && activeRole === 'player' && (
               <View style={styles.verifiedBadge}>
                 <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
                   <Path d="M2.5 7l3 3 6-6" stroke="#000" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
             )}
+            {data.is_verified && activeRole === 'scout' && (
+              <HexagonVerifiedBadge />
+            )}
           </View>
         </View>
 
-        {/* ── Scout info card (demo mode only) ── */}
+        {/* ── Scout info (demo mode only) ── */}
         {isDemoMode && activeRole === 'scout' && (() => {
           const scout = devRole === 'scout_subscribed'
             ? DEMO_SCOUT_PRO_PROFILE
             : DEMO_SCOUT_FREE_PROFILE
-          return (
-            <View style={styles.scoutInfoCard}>
-              {/* Type + org */}
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>Scout Type</Text>
-                <Text style={styles.scoutInfoValue}>
-                  {scout.scout_type === 'club_scout' ? 'Club Scout' : 'Freelance Scout'}
-                  {(scout as any).affiliated_club ? ` · ${(scout as any).affiliated_club}` : ''}
-                </Text>
-              </View>
-              <View style={styles.scoutInfoDivider} />
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>Organisation</Text>
-                <Text style={styles.scoutInfoValue}>{scout.organisation_name}</Text>
-              </View>
-              <View style={styles.scoutInfoDivider} />
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>Experience</Text>
-                <Text style={styles.scoutInfoValue}>{scout.years_experience} years</Text>
-              </View>
-              <View style={styles.scoutInfoDivider} />
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>Regions</Text>
-                <Text style={styles.scoutInfoValue}>{scout.regions_covered.join(', ')}</Text>
-              </View>
-              <View style={styles.scoutInfoDivider} />
-              <View style={styles.scoutInfoRow}>
-                <Text style={styles.scoutInfoLabel}>Specialisms</Text>
-                <Text style={styles.scoutInfoValue}>{scout.specialisms.join(', ')}</Text>
-              </View>
-              <View style={styles.scoutInfoDivider} />
+          const s = scout as any
 
-              {/* Identity & DBS verification section */}
-              <DbsVerificationSection scout={scout} />
+          const scoutAttrs = [
+            { label: 'Regions',       value: scout.regions_covered.join(' • ') },
+            { label: 'Specialisms',   value: scout.specialisms.join(' • ') },
+            { label: 'Safeguarding',  value: s.safeguarding_certified ? 'Fully compliant' : 'Not completed' },
+            { label: 'League Level',  value: scout.league_level ?? '—' },
+            { label: 'Positions',     value: (s.positions_seeking ?? []).join('  ') || '—' },
+          ]
+
+          return (
+            <View style={{ gap: 16, paddingHorizontal: Spacing.lg }}>
+              {/* ID & DBS verified banner */}
+              {s.layer1_verified && (
+                <VerifiedBanner onPress={() => {}} />
+              )}
+
+              {/* Experience + Scout Type stat cards */}
+              <View style={styles.detailsCardRow}>
+                <View style={[styles.detailsCard, { flex: 1 }]}>
+                  <Text style={styles.detailsCardLabel}>Experience</Text>
+                  <Text style={styles.detailsCardValue}>{scout.years_experience} Yrs</Text>
+                </View>
+                <View style={[styles.detailsCard, { flex: 1 }]}>
+                  <Text style={styles.detailsCardLabel}>Scout Type</Text>
+                  <Text style={styles.detailsCardValue} numberOfLines={1}>
+                    {scout.scout_type === 'club_scout' ? 'Club' : 'Freelance'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Club name (club scouts) or Scouting network (freelance) card */}
+              {(() => {
+                const isClub = scout.scout_type === 'club_scout'
+                const label = isClub ? 'Club Name' : 'Scouting Network'
+                const value = isClub ? s.affiliated_club : s.scouting_network
+                if (!value) return null
+                return (
+                  <View style={[styles.detailsCard, { height: undefined, minHeight: 82, gap: 8 }]}>
+                    <Text style={styles.detailsCardLabel}>{label}</Text>
+                    <Text style={styles.detailsCardValue} numberOfLines={2}>
+                      {value}
+                    </Text>
+                  </View>
+                )
+              })()}
+
+              {/* Attribute list */}
+              <AttrList
+                items={scoutAttrs}
+                style={{ paddingVertical: 0, paddingTop: 10 }}
+              />
 
               {/* Upgrade CTA for free scouts */}
               {devRole === 'scout_free' && (
@@ -594,22 +691,12 @@ export default function ProfileScreen() {
                     const displayPositions = positions.length > 0 ? positions : ['CB', 'LB', 'RB']
 
                     return (
-                      <View style={styles.attrWrap}>
-                        <View style={styles.attrInner}>
-                          {attrs.map(a => (
-                            <View key={a.label} style={styles.attrRow}>
-                              <Text style={styles.attrLabel}>{a.label}</Text>
-                              <Text style={styles.attrValue}>{a.value}</Text>
-                            </View>
-                          ))}
-                          <View style={styles.attrRow}>
-                            <Text style={styles.attrLabel}>Positions</Text>
-                            {displayPositions.map(p => (
-                              <Text key={p} style={styles.attrValue}>{p}</Text>
-                            ))}
-                          </View>
-                        </View>
-                      </View>
+                      <AttrList
+                        items={[
+                          ...attrs,
+                          { label: 'Positions', values: displayPositions },
+                        ]}
+                      />
                     )
                   })()}
 
@@ -768,11 +855,15 @@ const styles = StyleSheet.create({
   editRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: Spacing.md,
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  editActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
   editBtn: {
     flexDirection: 'row',
@@ -834,11 +925,12 @@ const styles = StyleSheet.create({
     lineHeight: 64,
   },
   tierBadge: {
-    marginTop: 8,
+    marginBottom: 8,
     borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderWidth: 1,
+    alignSelf: 'flex-start',
   },
   tierBadgeFree: {
     backgroundColor: 'rgba(196,155,30,0.12)',
@@ -993,7 +1085,7 @@ const styles = StyleSheet.create({
   attrRow: {
     flexDirection: 'row',
     gap: 10,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   attrLabel: {
     fontSize: 14,
@@ -1005,7 +1097,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: Colors.brand,
-    textTransform: 'uppercase',
   },
 
   // ── Showreel ──────────────────────────────────────────────────────────────

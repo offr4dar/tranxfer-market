@@ -48,7 +48,7 @@ export default function PersistentFAB() {
   // ── Real mode: player gets log FAB, scout gets shortlist FAB ─────────────────
   return (
     <>
-      <View style={[styles.wrapper, { bottom: 100 + insets.bottom }]}>
+      <View style={[styles.wrapper, { bottom: 100 + insets.bottom }]} pointerEvents="box-none">
 
         {/* Player: log activity */}
         {!resolvedIsScout && (
@@ -105,7 +105,6 @@ const styles = StyleSheet.create({
     right: 16,
     alignItems: 'center',
     gap: 12,
-    paddingBottom: 40,
   },
   btn: {
     width: 60,
