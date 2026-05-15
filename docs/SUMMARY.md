@@ -7,6 +7,7 @@
 ## Product
 * [User Types & Personas](product/user-types-and-personas.md)
 * [Core User Journeys](product/core-user-journeys.md)
+* [Scout Verification & Trust](product/scout-verification-and-trust.md)
 * [Feature Ideas Log](product/feature-ideas-log.md)
 
 ## Technical Specification
@@ -20,6 +21,7 @@
 
 ## Dev Instructions
 * [Immediate Action Items](dev-instructions.md)
+* [Scout Verification Checklist Screen](dev-instructions-verification-check-screen.md)
 
 ## Design
 * [Design System & Tokens](design/design-system-and-tokens.md)
@@ -29,3 +31,4 @@
 * [Acquisition Model](growth-strategy/acquisition-model.md)
 * [The Endorsement Growth Loop](growth-strategy/endorsement-growth-loop.md)
 * [Two-Sided Marketplace Considerations](growth-strategy/two-sided-marketplace-considerations.md)
+* [Scout Ecosystem & Qualifications](growth-strategy/scout-ecosystem-and-qualifications.md)

@@ -3,7 +3,8 @@ import * as SecureStore from 'expo-secure-store'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
 import { StatusBar } from 'expo-status-bar'
-import { View } from 'react-native'
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '@/constants/theme'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts, Anton_400Regular } from '@expo-google-fonts/anton'
@@ -29,6 +30,42 @@ const tokenCache = {
     } catch {}
   },
 }
+
+// ─── Persistent Exit Demo button (visible on every screen in demo mode) ───────
+function DemoExitButton() {
+  const { isDemoMode } = useDevRole()
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+  if (!isDemoMode) return null
+  return (
+    <TouchableOpacity
+      style={[demoStyles.btn, { bottom: 100 + insets.bottom }]}
+      onPress={() => router.replace('/demo-select' as any)}
+      activeOpacity={0.85}
+    >
+      <Text style={demoStyles.label}>EXIT DEMO</Text>
+    </TouchableOpacity>
+  )
+}
+const demoStyles = StyleSheet.create({
+  btn: {
+    position: 'absolute',
+    right: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    borderWidth: 1.5,
+    borderColor: Colors.brand,
+    zIndex: 999,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Colors.brand,
+    letterSpacing: 1,
+  },
+})
 
 // ─── Auth guard — redirects based on sign-in state ──────────────────────────
 function AuthGuard() {
@@ -144,6 +181,7 @@ export default function RootLayout() {
             <Stack.Screen name="upgrade"                  options={{ headerShown: false, animation: 'slide_from_bottom' }} />
             <Stack.Screen name="verify"                   options={{ headerShown: false, animation: 'slide_from_right' }} />
           </Stack>
+          <DemoExitButton />
         </View>
       </DevRoleProvider>
     </ClerkProvider>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native'
+import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
@@ -7,12 +7,11 @@ import Svg, { Path } from 'react-native-svg'
 import { useDevRole } from '@/lib/devRole'
 import { supabase } from '@/lib/supabase'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
-import { Colors } from '@/constants/theme'
 
 export default function PersistentFAB() {
-  const insets      = useSafeAreaInsets()
-  const router      = useRouter()
-  const { userId }  = useAuth()
+  const insets     = useSafeAreaInsets()
+  const router     = useRouter()
+  const { userId } = useAuth()
   const { devRole, isDemoMode } = useDevRole()
 
   const [isScout,      setIsScout]      = useState(false)
@@ -30,22 +29,11 @@ export default function PersistentFAB() {
     })()
   }, [userId])
 
-  const resolvedIsScout = (__DEV__ || isDemoMode) ? devRole !== 'player' : isScout
+  // In demo mode the Exit Demo button is rendered at root layout — nothing to show here
+  if (isDemoMode) return null
 
-  // ── Demo mode: show a single "Exit Demo" button ─────────────────────────────
-  if (isDemoMode) {
-    return (
-      <TouchableOpacity
-        style={[styles.exitBtn, { bottom: 100 + insets.bottom }]}
-        onPress={() => router.replace('/demo-select' as any)}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.exitBtnText}>EXIT DEMO</Text>
-      </TouchableOpacity>
-    )
-  }
+  const resolvedIsScout = isScout || devRole !== 'player'
 
-  // ── Real mode: player gets log FAB, scout gets shortlist FAB ─────────────────
   return (
     <>
       <View style={[styles.wrapper, { bottom: 100 + insets.bottom }]} pointerEvents="box-none">
@@ -113,23 +101,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // ── Exit Demo button ──────────────────────────────────────────────────────
-  exitBtn: {
-    position: 'absolute',
-    right: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 100,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    borderWidth: 1.5,
-    borderColor: Colors.brand,
-  },
-  exitBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.brand,
-    letterSpacing: 1,
   },
 })
