@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, Animated, Dimensions, Easing,
-  TouchableOpacity, TextInput, ScrollView, Modal,
-  FlatList, ActivityIndicator, Platform, ImageBackground,
+  TouchableOpacity, TextInput, ScrollView,
+  ActivityIndicator, Platform, ImageBackground,
 } from 'react-native'
 import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router'
 import { useSignUp, useAuth, useUser, useClerk } from '@clerk/clerk-expo'
@@ -17,6 +17,7 @@ import { setPendingProfile } from '@/lib/pendingProfile'
 import { getOutcodeCoords } from '@/lib/uk-outcode-coords'
 import { UK_OUTCODES } from '@/lib/uk-outcodes'
 import ConfirmCancelModal from '@/components/ConfirmCancelModal'
+import { showNativePicker } from '@/lib/nativePicker'
 
 const { width: W } = Dimensions.get('window')
 const H_PAD = 20
@@ -251,9 +252,7 @@ const ro = StyleSheet.create({
 })
 
 function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
-  const [showAge, setShowAge]     = useState(false)
-  const [showYears, setShowYears] = useState(false)
-  const [chips, setChips]         = useState<string[]>([])
+  const [chips, setChips] = useState<string[]>([])
 
   const search = useCallback((q: string) => {
     if (q.length < 1) { setChips([]); return }
@@ -315,7 +314,20 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
       {data.role === 'scout' && (
         <View style={{ gap: 16 }}>
           <Text style={fs.label}>Years of scouting experience</Text>
-          <TouchableOpacity style={fs.select} onPress={() => setShowYears(true)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={fs.select}
+            onPress={() =>
+              showNativePicker(
+                'Years of experience',
+                YEARS_EXP.map(y => `${y} year${y === '1' ? '' : 's'}`),
+                label => {
+                  const num = label.split(' ')[0]
+                  onChange({ yearsExperience: num })
+                },
+              )
+            }
+            activeOpacity={0.85}
+          >
             <Text style={data.yearsExperience ? fs.val : fs.ph}>
               {data.yearsExperience ? `${data.yearsExperience} year${data.yearsExperience === '1' ? '' : 's'}` : 'Select years'}
             </Text>
@@ -324,32 +336,17 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
         </View>
       )}
 
-      {data.role === 'scout' && (
-        <Modal visible={showYears} transparent animationType="slide">
-          <View style={fs.pickerBg}>
-            <View style={fs.pickerSheet}>
-              <View style={fs.pickerHead}>
-                <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>Years of experience</Text>
-                <TouchableOpacity onPress={() => setShowYears(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
-              </View>
-              <FlatList data={YEARS_EXP} keyExtractor={i => i} renderItem={({ item }) => (
-                <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
-                  onPress={() => { onChange({ yearsExperience: item }); setShowYears(false) }}>
-                  <Text style={{ fontSize: 18, color: data.yearsExperience === item ? ACCENT : '#fff' }}>
-                    {item} year{item === '1' ? '' : 's'}
-                  </Text>
-                </TouchableOpacity>
-              )} />
-            </View>
-          </View>
-        </Modal>
-      )}
-
       {/* Age — players only */}
       {data.role === 'player' && (
         <View style={{ gap: 16 }}>
           <Text style={fs.label}>What's your age?</Text>
-          <TouchableOpacity style={fs.select} onPress={() => setShowAge(true)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={fs.select}
+            onPress={() =>
+              showNativePicker('Age', AGES, item => onChange({ age: item }))
+            }
+            activeOpacity={0.85}
+          >
             <Text style={data.age ? fs.val : fs.ph}>{data.age || 'Select age'}</Text>
             <ChevronDown />
           </TouchableOpacity>
@@ -365,25 +362,6 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
             )
           })()}
         </View>
-      )}
-
-      {data.role === 'player' && (
-        <Modal visible={showAge} transparent animationType="slide">
-          <View style={fs.pickerBg}>
-            <View style={fs.pickerSheet}>
-              <View style={fs.pickerHead}>
-                <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>Select age</Text>
-                <TouchableOpacity onPress={() => setShowAge(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
-              </View>
-              <FlatList data={AGES} keyExtractor={i => i} renderItem={({ item }) => (
-                <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
-                  onPress={() => { onChange({ age: item }); setShowAge(false) }}>
-                  <Text style={{ fontSize: 18, color: data.age === item ? ACCENT : '#fff' }}>{item}</Text>
-                </TouchableOpacity>
-              )} />
-            </View>
-          </View>
-        </Modal>
       )}
 
       {/* Gender — players only */}
@@ -687,9 +665,6 @@ const fs = StyleSheet.create({
   select: { height: 59, backgroundColor: 'rgba(0,0,0,0.31)', borderWidth: 1, borderColor: '#4f4f4f', borderRadius: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   val: { fontSize: 16, color: '#fff' },
   ph: { fontSize: 16, color: '#909090' },
-  pickerBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  pickerSheet: { backgroundColor: '#1a1a1a', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '60%', paddingBottom: 40 },
-  pickerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
 })
 const cs = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.11)', borderWidth: 1, borderColor: 'transparent' },
@@ -715,7 +690,6 @@ function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Pa
 
 // ─── Step 2 (Scout only): Your Preferences ───────────────────────────────────
 function PreferencesStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
-  const [showLeague, setShowLeague] = useState(false)
 
   function toggleItem(key: 'regions' | 'specialisms', item: string) {
     const current = data[key] as string[]
@@ -773,28 +747,17 @@ function PreferencesStep({ data, onChange }: { data: WizardData; onChange: (d: P
       {/* League level */}
       <View style={{ gap: 14 }}>
         <Text style={fs.label}>Which level do you primarily scout at?</Text>
-        <TouchableOpacity style={fs.select} onPress={() => setShowLeague(true)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={fs.select}
+          onPress={() =>
+            showNativePicker('League level', LEAGUE_LEVELS, item => onChange({ leagueLevel: item }))
+          }
+          activeOpacity={0.85}
+        >
           <Text style={data.leagueLevel ? fs.val : fs.ph}>{data.leagueLevel || 'Select league level'}</Text>
           <ChevronDown />
         </TouchableOpacity>
       </View>
-
-      <Modal visible={showLeague} transparent animationType="slide">
-        <View style={fs.pickerBg}>
-          <View style={fs.pickerSheet}>
-            <View style={fs.pickerHead}>
-              <Text style={{ fontSize: 18, color: '#fff', fontWeight: '600' }}>League level</Text>
-              <TouchableOpacity onPress={() => setShowLeague(false)}><Text style={{ color: ACCENT, fontSize: 16 }}>Done</Text></TouchableOpacity>
-            </View>
-            <FlatList data={LEAGUE_LEVELS} keyExtractor={i => i} renderItem={({ item }) => (
-              <TouchableOpacity style={{ paddingVertical: 14, paddingHorizontal: 20 }}
-                onPress={() => { onChange({ leagueLevel: item }); setShowLeague(false) }}>
-                <Text style={{ fontSize: 18, color: data.leagueLevel === item ? ACCENT : '#fff' }}>{item}</Text>
-              </TouchableOpacity>
-            )} />
-          </View>
-        </View>
-      </Modal>
 
       {/* Positions seeking — shirt rack */}
       <View style={{ gap: 6, marginHorizontal: -H_PAD }}>

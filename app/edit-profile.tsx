@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, ActionSheetIOS, Platform,
-  Modal, FlatList,
+  ScrollView, ActivityIndicator,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
@@ -13,6 +12,7 @@ import DbsInfoSheet from '@/components/DbsInfoSheet'
 import { supabase } from '@/lib/supabase'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
+import { showNativePicker } from '@/lib/nativePicker'
 import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
 
 // ─── Picker options ───────────────────────────────────────────────────────────
@@ -81,65 +81,6 @@ function calcCompletionScore(p: {
   return checks.reduce((sum, [filled, pts]) => sum + (filled ? pts : 0), 0)
 }
 
-// ─── Android picker modal ─────────────────────────────────────────────────────
-
-interface PickerModalProps {
-  visible: boolean
-  title: string
-  options: string[]
-  onSelect: (value: string) => void
-  onClose: () => void
-}
-
-function PickerModal({ visible, title, options, onSelect, onClose }: PickerModalProps) {
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={pickerStyles.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={pickerStyles.sheet}>
-        <Text style={pickerStyles.title}>{title}</Text>
-        <FlatList
-          data={options}
-          keyExtractor={item => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={pickerStyles.option} onPress={() => { onSelect(item); onClose() }}>
-              <Text style={pickerStyles.optionText}>{item}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-    </Modal>
-  )
-}
-
-const pickerStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '60%',
-    paddingBottom: 32,
-  },
-  title: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  option: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  optionText: { color: Colors.text, fontSize: 16 },
-})
-
 // ─── Reusable field components ────────────────────────────────────────────────
 
 function FieldLabel({ label, hint }: { label: string; hint?: string }) {
@@ -207,11 +148,6 @@ export default function EditProfileScreen() {
 
   // Fields not editable here but needed for the completion score
   const immutableRef = useRef({ primaryPosition: '', photoUrl: '', reelUrl: '' })
-
-  const [pickerVisible, setPickerVisible] = useState(false)
-  const [activePicker, setActivePicker]   = useState<{
-    title: string; options: string[]; field: keyof FormState
-  } | null>(null)
 
   // Load current profile
   useEffect(() => {
@@ -308,15 +244,7 @@ export default function EditProfileScreen() {
   }
 
   function openPicker(title: string, options: string[], field: keyof FormState) {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...options, 'Cancel'], cancelButtonIndex: options.length, title },
-        index => { if (index < options.length) set(field, options[index]) },
-      )
-    } else {
-      setActivePicker({ title, options, field })
-      setPickerVisible(true)
-    }
+    showNativePicker(title, options, value => set(field, value))
   }
 
   async function handleSave() {
@@ -735,17 +663,6 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Android picker modal */}
-      {activePicker && (
-        <PickerModal
-          visible={pickerVisible}
-          title={activePicker.title}
-          options={activePicker.options}
-          onSelect={v => set(activePicker.field, v)}
-          onClose={() => setPickerVisible(false)}
-        />
-      )}
 
       <DbsInfoSheet visible={dbsInfoVisible} onClose={() => setDbsInfoVisible(false)} />
     </ScreenBackground>
