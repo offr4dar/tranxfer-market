@@ -4,7 +4,7 @@ import { Tabs, usePathname, useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
 import {
-  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon,
+  FeedIcon, ProfileIcon, InboxIcon, BellIcon, WatchlistIcon, MediaIcon,
 } from '@/components/icons/TabIcons'
 import FloatingTabBar from '@/components/FloatingTabBar'
 import { useDevRole } from '@/lib/devRole'
@@ -133,6 +133,16 @@ function TabsContent() {
               count={unreadMessages}
             />
           ),
+        }}
+      />
+
+      {/* ── Player-only: media gallery ─────────────────────────────────────── */}
+      <Tabs.Screen
+        name="media"
+        options={{
+          title: 'Media',
+          href: isPlayer ? undefined : null,
+          tabBarIcon: ({ color, size }) => <MediaIcon color={color} size={size} />,
         }}
       />
 

@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDevRole } from '@/lib/devRole'
 
 const ALWAYS_HIDDEN = new Set(['search'])
-const SCOUT_ONLY = new Set(['feed', 'shortlist'])
+const SCOUT_ONLY    = new Set(['feed', 'shortlist'])
+const PLAYER_ONLY   = new Set(['media'])
 
 export default function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
@@ -20,6 +21,7 @@ export default function FloatingTabBar({ state, descriptors, navigation }: Botto
           if (route.name.includes('conversation')) return null
           if (ALWAYS_HIDDEN.has(route.name)) return null
           if (isPlayer && SCOUT_ONLY.has(route.name)) return null
+          if (!isPlayer && PLAYER_ONLY.has(route.name)) return null
 
           const label = options.title ?? route.name
           const isFocused = state.index === index

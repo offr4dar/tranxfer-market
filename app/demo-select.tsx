@@ -23,7 +23,7 @@ const ROLES: {
     sublabel: 'Marcus Williams · CM',
     emoji: '👤',
     accent: '#00FF87',
-    description: 'See the app as a player. View your profile, performance log, insights, and showreel.',
+    description: 'See the app as a player. View your profile, performance log, insights, and featured video.',
     tags: ['Profile', 'Performance Log', 'Insights'],
   },
   {
@@ -41,8 +41,8 @@ const ROLES: {
     sublabel: 'Sarah Mitchell · Premier Sports',
     emoji: '⭐',
     accent: '#0F5FFF',
-    description: 'Full access to all player data, videos, performance entries, and direct messaging.',
-    tags: ['Full Access', 'Video', 'Messaging'],
+    description: 'Full access to all player data, videos, performance entries, and direct messaging. Feed includes U16 players to test all contact-gate scenarios.',
+    tags: ['Full Access', 'Video', 'Messaging', 'U16 Gate'],
   },
   {
     role: 'scout_unverified',

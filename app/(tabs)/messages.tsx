@@ -10,6 +10,7 @@ import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
+import { InboxIcon } from '@/components/icons/TabIcons'
 
 interface Conversation {
   conversation_id: string
@@ -37,11 +38,11 @@ export default function MessagesScreen() {
   const { userId } = useAuth()
   const { isDemoMode } = useDevRole()
   const router = useRouter()
-  const [convos, setConvos]   = useState<Conversation[]>([])
+  const [convos,  setConvos]  = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchConvos = useCallback(async () => {
-    if (isDemoMode) { setLoading(false); return }  // demo: no real conversations
+    if (isDemoMode) { setLoading(false); return }
     if (!userId) return
     const { data, error } = await supabase.rpc('get_user_conversations', { p_user_id: userId })
     if (error) console.error('fetchConvos:', error.message)
@@ -66,7 +67,9 @@ export default function MessagesScreen() {
         contentContainerStyle={{ paddingBottom: 200 }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>💬</Text>
+            <View style={styles.emptyIconWrap}>
+              <InboxIcon color="#fff" size={40} />
+            </View>
             <Text style={styles.emptyTitle}>No messages yet</Text>
             <Text style={styles.emptySub}>
               When a scout or player contacts you, the conversation will appear here.
@@ -110,7 +113,7 @@ export default function MessagesScreen() {
                   )}
                 </View>
                 <Text style={styles.role}>
-                  {item.other_role === 'scout' ? '🔍 Scout' : '⚽ Player'}
+                  {item.other_role === 'scout' ? 'Scout' : 'Player'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -135,16 +138,16 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { color: Colors.text, fontSize: 16, fontWeight: '600' },
-  rowBody:   { flex: 1, gap: 3 },
-  rowTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowBottom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name:      { color: Colors.text, fontSize: 15, fontWeight: '500' },
-  nameBold:  { fontWeight: '700' },
-  time:      { color: Colors.textMuted, fontSize: 12 },
-  preview:   { flex: 1, color: Colors.textSecondary, fontSize: 13 },
-  previewBold: { color: Colors.text, fontWeight: '500' },
-  role:      { color: Colors.textMuted, fontSize: 11 },
+  avatarText:   { color: Colors.text, fontSize: 16, fontWeight: '600' },
+  rowBody:      { flex: 1, gap: 3 },
+  rowTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  rowBottom:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name:         { color: Colors.text, fontSize: 15, fontWeight: '500' },
+  nameBold:     { fontWeight: '700' },
+  time:         { color: Colors.textMuted, fontSize: 12 },
+  preview:      { flex: 1, color: Colors.textSecondary, fontSize: 13 },
+  previewBold:  { color: Colors.text, fontWeight: '500' },
+  role:         { color: Colors.textMuted, fontSize: 11 },
   unreadBadge: {
     minWidth: 20, height: 20, borderRadius: 10,
     backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
@@ -152,7 +155,12 @@ const styles = StyleSheet.create({
   },
   unreadCount: { color: Colors.background, fontSize: 11, fontWeight: '700' },
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: Spacing.xl, gap: 12 },
-  emptyIcon:  { fontSize: 40 },
+  emptyIconWrap: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { color: Colors.text, fontSize: 18, fontWeight: '600' },
   emptySub:   { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22 },
 })

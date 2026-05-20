@@ -10,6 +10,7 @@ web-build/
 .env
 .env.local
 .env.*.local
+supabase/functions/.env
 
 # Native builds
 android/

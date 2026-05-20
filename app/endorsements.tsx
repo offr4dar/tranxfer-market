@@ -184,14 +184,18 @@ export default function EndorsementsScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No endorsements yet</Text>
             <Text style={styles.emptyDesc}>
-              This player does not yet have any endorsements.
+              {isPlayerView
+                ? "You haven't received any endorsements yet. As scouts view and assess your profile, their endorsements will appear here."
+                : 'This player does not yet have any endorsements.'}
             </Text>
           </View>
         ) : (
           <>
-            {/* ── Intro paragraph ─────────────────────────────────────────── */}
+            {/* ── Intro paragraph ──────────────────────────────────── */}
             <Text style={styles.intro}>
-              Endorsements are given by scouts who have reviewed this player's performance. Each attribute below reflects how many scouts have endorsed this player in that area.
+              {isPlayerView
+                ? "These are the endorsements scouts have left on your profile. Each attribute is a direct signal of how professionals in the game rate your ability — the more endorsements you earn, the stronger your credibility to clubs and agents looking at your page."
+                : "Endorsements are given by scouts who have reviewed this player's performance. Each attribute below reflects how many scouts have endorsed this player in that area."}
             </Text>
 
             {/* ── Endorser credit row ──────────────────────────────────────── */}

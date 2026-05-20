@@ -18,6 +18,7 @@ import { getOutcodeCoords } from '@/lib/uk-outcode-coords'
 import { UK_OUTCODES } from '@/lib/uk-outcodes'
 import ConfirmCancelModal from '@/components/ConfirmCancelModal'
 import { showNativePicker } from '@/lib/nativePicker'
+import { openLink, LINKS } from '@/lib/browser'
 
 const { width: W } = Dimensions.get('window')
 const H_PAD = 20
@@ -32,6 +33,7 @@ type Role = 'player' | 'scout'
 type ScoutType = 'club_scout' | 'freelance_scout'
 type GenderType = 'male' | 'female'
 type FootType  = 'left' | 'right' | 'both'
+type GuardianRelationship = 'parent' | 'legal_guardian'
 interface WizardData {
   role: Role | null
   scoutType: ScoutType | null
@@ -57,6 +59,11 @@ interface WizardData {
   bio: string
   regions: string[]
   specialisms: string[]
+  // Guardian / U16
+  isMinor: boolean
+  guardianName: string
+  guardianRelationship: GuardianRelationship | null
+  guardianPinHash: string
 }
 const INIT: WizardData = {
   role: null, scoutType: null, gender: null, foot: null, positions: [],
@@ -66,8 +73,10 @@ const INIT: WizardData = {
   clearanceNumber: '', leagueLevel: '', positionsSeeking: [],
   ageRangeMin: '', ageRangeMax: '', phone: '', country: '', bio: '',
   regions: [], specialisms: [],
+  isMinor: false, guardianName: '', guardianRelationship: null, guardianPinHash: '',
 }
-const AGES      = Array.from({ length: 60 }, (_, i) => String(i + 16))
+const AGES     = Array.from({ length: 60 }, (_, i) => String(i + 16))
+const U16_AGES = Array.from({ length: 8  }, (_, i) => String(i + 8))  // 8–15
 const YEARS_EXP = Array.from({ length: 40 }, (_, i) => String(i + 1))
 const LEAGUE_LEVELS = [
   'Premier League', 'Championship', 'League 1', 'League 2',
@@ -190,14 +199,32 @@ const ROLES = [
 ]
 function RoleStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 16 }}>
-      {ROLES.map(r => (
-        <TouchableOpacity key={r.key} style={[rs.card, data.role === r.key && rs.cardSelected]}
-          onPress={() => onChange({ role: r.key })} activeOpacity={0.8}>
-          <SvgXml xml={r.svg} width={64} height={64} />
-          <Text style={rs.label}>{r.label}</Text>
+    <View style={{ gap: 20 }}>
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        {ROLES.map(r => (
+          <TouchableOpacity key={r.key} style={[rs.card, data.role === r.key && rs.cardSelected]}
+            onPress={() => onChange({ role: r.key, isMinor: false })} activeOpacity={0.8}>
+            <SvgXml xml={r.svg} width={64} height={64} />
+            <Text style={rs.label}>{r.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* U16 checkbox — only shown when Player is selected */}
+      {data.role === 'player' && (
+        <TouchableOpacity
+          style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}
+          onPress={() => onChange({ isMinor: !data.isMinor })}
+          activeOpacity={0.8}
+        >
+          <View style={[tc.box, data.isMinor && tc.boxChecked]}>
+            {data.isMinor && <CheckIcon />}
+          </View>
+          <Text style={[fs.label, { flex: 1, lineHeight: 22 }]}>
+            I'm registering a player under 16
+          </Text>
         </TouchableOpacity>
-      ))}
+      )}
     </View>
   )
 }
@@ -339,11 +366,15 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
       {/* Age — players only */}
       {data.role === 'player' && (
         <View style={{ gap: 16 }}>
-          <Text style={fs.label}>What's your age?</Text>
+          <Text style={fs.label}>{data.isMinor ? "What's your child's age?" : "What's your age?"}</Text>
           <TouchableOpacity
             style={fs.select}
             onPress={() =>
-              showNativePicker('Age', AGES, item => onChange({ age: item }))
+              showNativePicker(
+                'Age',
+                data.isMinor ? U16_AGES : AGES,
+                item => onChange({ age: item }),
+              )
             }
             activeOpacity={0.85}
           >
@@ -357,7 +388,9 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
             const group = `U${ageOnCutoff + 1}`
             return (
               <Text style={fs.hint}>
-                You are in the <Text style={{ color: ACCENT, fontWeight: '700' }}>{group}</Text> age group this season (Aug 31 cutoff)
+                {data.isMinor ? 'Your child is' : 'You are'} in the{' '}
+                <Text style={{ color: ACCENT, fontWeight: '700' }}>{group}</Text>{' '}
+                age group this season (Aug 31 cutoff)
               </Text>
             )
           })()}
@@ -368,8 +401,8 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
       {data.role === 'player' && (
         <View style={{ gap: 16 }}>
           <View style={{ gap: 2 }}>
-            <Text style={fs.label}>What is your gender?</Text>
-            <Text style={fs.hint}>Needed so we can identify the right group for you.</Text>
+            <Text style={fs.label}>{data.isMinor ? "What is your child's gender?" : 'What is your gender?'}</Text>
+            <Text style={fs.hint}>Needed so we can identify the right group.</Text>
           </View>
           <View style={{ gap: 10 }}>
             {GENDERS.map(g => (
@@ -387,7 +420,7 @@ function AboutStep({ data, onChange }: { data: WizardData; onChange: (d: Partial
       {/* Location */}
       <View style={{ gap: 16 }}>
         <View style={{ gap: 16 }}>
-          <Text style={fs.label}>Where are you based?</Text>
+          <Text style={fs.label}>{data.isMinor ? "Where is your child based?" : 'Where are you based?'}</Text>
           <Text style={fs.hint}>{proximityText}</Text>
           <TextInput
             style={[fs.input, { marginTop: 4 }]}
@@ -513,7 +546,9 @@ function YourGameStep({ data, onChange }: { data: WizardData; onChange: (d: Part
     <View style={{ gap: 32 }}>
       {/* Position shirt rack */}
       <View style={{ gap: 6, marginHorizontal: -H_PAD }}>
-        <Text style={[fs.label, { paddingHorizontal: H_PAD }]}>Positions played</Text>
+        <Text style={[fs.label, { paddingHorizontal: H_PAD }]}>
+          {data.isMinor ? 'Positions your child plays' : 'Positions played'}
+        </Text>
         <Text style={[fs.hint, { paddingHorizontal: H_PAD, marginBottom: 30 }]}>Select up to three – swipe to browse</Text>
         <ShirtRackSelector
           selected={data.positions}
@@ -542,7 +577,11 @@ function YourGameStep({ data, onChange }: { data: WizardData; onChange: (d: Part
 // ─── Step 4 (Scout) / Step 3 (Player): Your details ─────────────────────────
 
 function detailsIntro(data: WizardData): string {
-  if (data.role === 'player') return 'Please enter your first and last name.'
+  if (data.role === 'player') {
+    return data.isMinor
+      ? "Please enter your child's first and last name."
+      : 'Please enter your first and last name.'
+  }
   switch (data.scoutType) {
     case 'club_scout':      return 'Please enter your name as registered with your club, along with your contact details.'
     case 'freelance_scout': return 'Please enter your personal details below.'
@@ -555,12 +594,12 @@ function DetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
     <View style={{ gap: 32 }}>
       <Text style={fs.intro}>{detailsIntro(data)}</Text>
       <View style={{ gap: 16 }}>
-        <Text style={fs.label}>First name</Text>
+        <Text style={fs.label}>{data.isMinor ? "Child's first name" : 'First name'}</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="John"
           value={data.firstName} onChangeText={v => onChange({ firstName: v })} autoCapitalize="words" />
       </View>
       <View style={{ gap: 16 }}>
-        <Text style={fs.label}>Last name</Text>
+        <Text style={fs.label}>{data.isMinor ? "Child's last name" : 'Last name'}</Text>
         <TextInput style={fs.input} placeholderTextColor="#909090" placeholder="Doe"
           value={data.lastName} onChangeText={v => onChange({ lastName: v })} autoCapitalize="words" />
       </View>
@@ -606,6 +645,7 @@ function AccountStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
         checked={data.termsAccepted}
         onToggle={() => onChange({ termsAccepted: !data.termsAccepted })}
         isPlayer={data.role === 'player'}
+        isMinor={data.isMinor}
       />
     </View>
   )
@@ -613,33 +653,33 @@ function AccountStep({ data, onChange }: { data: WizardData; onChange: (d: Parti
 
 // ─── Terms checkbox ───────────────────────────────────────────────────────────
 function TermsCheckbox({
-  checked, onToggle, isPlayer,
+  checked, onToggle, isPlayer, isMinor,
 }: {
   checked: boolean
   onToggle: () => void
   isPlayer: boolean
+  isMinor?: boolean
 }) {
+  let prefix = 'I have read and agree to the '
+  if (isPlayer && !isMinor) prefix = 'I am 16 years old or over and have read and agree to the '
+  if (isMinor)              prefix = 'I am the parent or legal guardian and have read and agree to the '
+
   return (
     <TouchableOpacity
       style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 30 }}
       onPress={onToggle}
       activeOpacity={0.8}
     >
-      {/* Custom square checkbox */}
       <View style={[tc.box, checked && tc.boxChecked]}>
         {checked && <CheckIcon />}
       </View>
-
-      {/* Label with underlined link words */}
       <Text style={[fs.label, { flex: 1, lineHeight: 22 }]}>
-        {isPlayer
-          ? 'I am 16 years old or over and have read and agree to the '
-          : 'I have read and agree to the '}
-        <Text style={tc.link} onPress={() => { /* TODO: open terms */ }}>terms</Text>
+        {prefix}
+        <Text style={tc.link} onPress={() => openLink(LINKS.terms)}>terms</Text>
         {', '}
-        <Text style={tc.link} onPress={() => { /* TODO: open privacy */ }}>privacy</Text>
+        <Text style={tc.link} onPress={() => openLink(LINKS.privacy)}>privacy</Text>
         {' and '}
-        <Text style={tc.link} onPress={() => { /* TODO: open safeguarding */ }}>safeguarding</Text>
+        <Text style={tc.link} onPress={() => openLink(LINKS.safeguarding)}>safeguarding</Text>
         {' policies'}
       </Text>
     </TouchableOpacity>
@@ -688,7 +728,94 @@ function OAuthFinalStep({ data, onChange }: { data: WizardData; onChange: (d: Pa
   )
 }
 
-// ─── Step 2 (Scout only): Your Preferences ───────────────────────────────────
+// ─── Guardian steps ───────────────────────────────────────────────────────────
+
+const CONSENT_TEXT =
+  'By continuing, you confirm you are the parent or legal guardian of the player ' +
+  'you are about to register. You consent to Tranxfer Market processing their ' +
+  'personal data for the purpose of football recruitment visibility. You can ' +
+  'withdraw consent or delete all data at any time from Settings.'
+
+const GUARDIAN_RELATIONSHIPS: { key: 'parent' | 'legal_guardian'; label: string }[] = [
+  { key: 'parent',          label: 'Parent' },
+  { key: 'legal_guardian',  label: 'Legal Guardian' },
+]
+
+// Step 5 — Guardian details
+function GuardianDetailsStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
+  return (
+    <View style={{ gap: 32 }}>
+      <Text style={fs.intro}>
+        Please enter your details as the parent or legal guardian of this player.
+      </Text>
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>Your full name</Text>
+        <TextInput
+          style={fs.input}
+          placeholderTextColor="#909090"
+          placeholder="Jane Doe"
+          value={data.guardianName}
+          onChangeText={v => onChange({ guardianName: v })}
+          autoCapitalize="words"
+        />
+      </View>
+      <View style={{ gap: 16 }}>
+        <Text style={fs.label}>Your relationship to the player</Text>
+        <View style={{ gap: 10 }}>
+          {GUARDIAN_RELATIONSHIPS.map(r => (
+            <RadioOption
+              key={r.key}
+              label={r.label}
+              selected={data.guardianRelationship === r.key}
+              onPress={() => onChange({ guardianRelationship: r.key })}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  )
+}
+
+// Step 6 — Guardian consent (button IS the consent action — no checkbox)
+function GuardianConsentStep({ on_consent }: { on_consent: () => void }) {
+  return (
+    <View style={{ gap: 32 }}>
+      <View style={{ padding: 20, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+        <Text style={[fs.label, { lineHeight: 24 }]}>{CONSENT_TEXT}</Text>
+      </View>
+      <TouchableOpacity
+        style={[st_guardian.btn]}
+        onPress={on_consent}
+        activeOpacity={0.85}
+      >
+        <Text style={st_guardian.btnText}>I Consent &amp; Continue</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// Step 7 — Guardian PIN setup (reuses ParentalGate in set mode)
+function GuardianPinStep({ on_pin_set }: { on_pin_set: (hash: string) => void }) {
+  // Import inline to avoid circular deps — gate handles its own hashing
+  const [pinDone, setPinDone] = React.useState(false)
+  return (
+    <View style={{ gap: 24 }}>
+      <Text style={fs.intro}>
+        Set a 4-digit PIN to protect guardian settings. Don't share it with your child.
+      </Text>
+      {!pinDone && (
+        <Text style={[fs.hint, { textAlign: 'center' }]}>Enter your PIN below ↓</Text>
+      )}
+    </View>
+  )
+}
+
+const st_guardian = StyleSheet.create({
+  btn: { height: 57, backgroundColor: ACCENT, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontSize: 14, fontWeight: '700', color: '#000', letterSpacing: 0.28, textTransform: 'uppercase' },
+})
+
+
 function PreferencesStep({ data, onChange }: { data: WizardData; onChange: (d: Partial<WizardData>) => void }) {
 
   function toggleItem(key: 'regions' | 'specialisms', item: string) {
@@ -857,12 +984,22 @@ function validate(step: number, data: WizardData, isOAuth = false): string {
   if (!isOAuth && step === 4 && !data.email.trim()) return 'Please enter your email'
   if (!isOAuth && step === 4 && data.password.length < 8) return 'Password must be at least 8 characters'
   if (step === 4 && !data.termsAccepted) return 'Please accept the terms to continue'
+  // Step 5 (U16 only): Guardian details
+  if (step === 5 && data.isMinor && !data.guardianName.trim()) return 'Please enter your full name'
+  if (step === 5 && data.isMinor && !data.guardianRelationship) return 'Please select your relationship to the player'
+  // Step 6 (U16 only): Consent — CTA button handles it; no validate error needed
+  // Step 7 (U16 only): PIN
+  if (step === 7 && data.isMinor && !data.guardianPinHash) return 'Please set your guardian PIN to continue'
   return ''
 }
 function isStepValid(step: number, data: WizardData, isOAuth = false) { return validate(step, data, isOAuth) === '' }
 
 // ─── Screen titles per step ───────────────────────────────────────────────────
-const TITLES_PLAYER = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nGAME', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_PLAYER     = ['SELECT YOUR\nPROFILE', 'ABOUT\nYOU', 'YOUR\nGAME', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
+const TITLES_PLAYER_U16 = [
+  'SELECT YOUR\nPROFILE', "YOUR CHILD'S\nDETAILS", "YOUR CHILD'S\nGAME",
+  'PLAYER\nDETAILS', 'CREATE\nACCOUNT', 'GUARDIAN\nDETAILS', 'PARENTAL\nCONSENT', 'SET YOUR\nPIN',
+]
 const TITLES_SCOUT  = ['SELECT YOUR\nPROFILE', 'YOUR\nROLE', 'YOUR\nPREFERENCES', 'YOUR\nDETAILS', 'CREATE YOUR\nACCOUNT']
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
@@ -900,14 +1037,14 @@ export default function OnboardingScreen() {
   const currentX = useRef(new Animated.Value(0)).current
   const incomingX = useRef(new Animated.Value(0)).current
   const currentOpacity = useRef(new Animated.Value(1)).current
-  // Per-dot opacity and translate — 6 entries to cover scouts (6 steps) and players (5 steps)
-  const dotOpacities  = useRef([0,1,2,3,4,5].map(() => new Animated.Value(1))).current
-  const dotTranslates = useRef([0,1,2,3,4,5].map(() => new Animated.Value(0))).current
+  // Per-dot opacity and translate — 8 entries covers scouts (6), players (5), U16 players (8)
+  const dotOpacities  = useRef([0,1,2,3,4,5,6,7].map(() => new Animated.Value(1))).current
+  const dotTranslates = useRef([0,1,2,3,4,5,6,7].map(() => new Animated.Value(0))).current
 
   const update = (p: Partial<WizardData>) => { setData(d => ({ ...d, ...p })); setError('') }
 
-  // Per-step scroll refs — used to scroll to top on every step change
-  const scrollRefs = useRef<Array<ScrollView | null>>(Array(5).fill(null))
+  // Per-step scroll refs — 8 entries covers the longest path (U16 = 8 steps)
+  const scrollRefs = useRef<Array<ScrollView | null>>(Array(8).fill(null))
   // After step commits to layout, always scroll to top
   useEffect(() => {
     const id = setTimeout(() => {
@@ -965,11 +1102,69 @@ export default function OnboardingScreen() {
   const goNext = async () => {
     const err = validate(step, data, isOAuth)
     if (err) { setError(err); return }
-    const lastStep = data.role === 'scout' ? 5 : 4
-    // Navigate forward
+    // Navigate forward — lastStep is derived from component scope above
     if (step < lastStep) {
       const next = step + 1
       animateStep(1, next)
+      return
+    }
+
+    // ─ U16 guardian path ─────────────────────────────────────────────────────
+    if (data.isMinor) {
+      if (!authUserId) { setError('Authentication error. Please try again.'); return }
+      if (!data.guardianPinHash) { setError('Please set your guardian PIN to continue'); return }
+      setLoading(true)
+      try {
+        const coords = getOutcodeCoords(data.postcode)
+        // 1. Create guardian profile
+        const { error: gpErr } = await supabase.from('guardian_profiles').insert({
+          user_id:      authUserId,
+          full_name:    data.guardianName,
+          relationship: data.guardianRelationship,
+          email:        data.email,
+        })
+        if (gpErr) throw new Error('Guardian profile: ' + gpErr.message)
+
+        // 2. Create player profile with guardian fields
+        const { data: pp, error: ppErr } = await supabase
+          .from('player_profiles')
+          .insert({
+            user_id:                authUserId,
+            first_name:             data.firstName,
+            last_name:              data.lastName,
+            age:                    parseInt(data.age),
+            gender:                 data.gender || null,
+            postcode:               data.postcode,
+            lat:                    coords?.[0] ?? null,
+            lng:                    coords?.[1] ?? null,
+            preferred_foot:         data.foot || null,
+            nationality:            null,
+            is_minor:               true,
+            guardian_user_id:       authUserId,
+            guardian_pin_hash:      data.guardianPinHash,
+            contact_permission:     'none',
+            guardian_consent_active: true,
+          })
+          .select('id')
+          .single()
+        if (ppErr) throw new Error('Player profile: ' + ppErr.message)
+
+        // 3. Create immutable consent record
+        const { error: pcErr } = await supabase.from('parental_consents').insert({
+          guardian_user_id:      authUserId,
+          player_profile_id:     pp.id,
+          consent_type:          'granted',
+          consent_version:       'v1.0',
+          consent_text_snapshot: CONSENT_TEXT,
+          ip_address:            null,
+          user_agent:            null,
+        })
+        if (pcErr) throw new Error('Consent record: ' + pcErr.message)
+
+        router.replace('/(tabs)/profile')
+      } catch (e: any) {
+        setError(e?.message ?? 'Something went wrong')
+      } finally { setLoading(false) }
       return
     }
 
@@ -1088,18 +1283,24 @@ export default function OnboardingScreen() {
     router.replace('/(auth)/welcome')
   }, [isOAuth, clerk, navigation, router])
 
-  const isScout = data.role === 'scout'
+  const isScout  = data.role === 'scout'
+  const lastStep  = data.isMinor ? 7 : (isScout ? 4 : 4)
   const goBack = () => {
     if (step === 0) { router.back(); return }
     const prev = step - 1
     animateStep(-1, prev)
   }
-  const valid      = isStepValid(step, data, isOAuth)
-  const lastStep   = 4
-  const getCTA     = (s: number) => s === 0 ? 'Next' : s < lastStep ? 'Continue' : (isOAuth ? 'Continue' : 'Create account')
-  const getTitle   = (s: number) => {
-    const titles = isScout ? TITLES_SCOUT : TITLES_PLAYER
+  const valid   = isStepValid(step, data, isOAuth)
+  const getCTA  = (s: number) => {
+    if (s === 0)         return 'Next'
+    if (s === 6)         return ''          // consent step: button is inside component
+    if (s < lastStep)   return 'Continue'
+    return isOAuth ? 'Continue' : (data.isMinor ? 'Finish setup' : 'Create account')
+  }
+  const getTitle = (s: number) => {
     if (s === lastStep && isOAuth) return 'ALMOST\nTHERE'
+    if (data.isMinor) return TITLES_PLAYER_U16[s] ?? ''
+    const titles = isScout ? TITLES_SCOUT : TITLES_PLAYER
     return titles[s] ?? ''
   }
 
@@ -1130,6 +1331,23 @@ export default function OnboardingScreen() {
         {s === 4 && (isOAuth
           ? <OAuthFinalStep data={data} onChange={update} />
           : <AccountStep data={data} onChange={update} />)}
+        {/* Steps 5-7: Guardian path (U16 only) */}
+        {s === 5 && data.isMinor && <GuardianDetailsStep data={data} onChange={update} />}
+        {s === 6 && data.isMinor && (
+          <GuardianConsentStep
+            on_consent={() => {
+              // Consent captured — advance to PIN step
+              animateStep(1, 7)
+            }}
+          />
+        )}
+        {s === 7 && data.isMinor && (
+          <GuardianPinStep
+            on_pin_set={(hash) => {
+              update({ guardianPinHash: hash })
+            }}
+          />
+        )}
       </View>
 
       {/* Error — sits directly below the last field */}
@@ -1141,17 +1359,20 @@ export default function OnboardingScreen() {
 
       {/* CTAs */}
       <View style={[st.ctas, { paddingBottom: Math.max(insets.bottom + 8, 32) }]}>
-        <TouchableOpacity
-          style={[st.btn, !valid && st.btnDisabled]}
-          onPress={goNext}
-          activeOpacity={valid ? 0.85 : 1}
-          disabled={loading || inTrans}
-        >
-          {loading
-            ? <ActivityIndicator color={valid ? '#000' : '#507664'} />
-            : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{getCTA(s)}</Text>
-          }
-        </TouchableOpacity>
+          {/* Hide standard CTA on consent step (step 6) — GuardianConsentStep has its own button */}
+          {step !== 6 && (
+            <TouchableOpacity
+              style={[st.btn, !valid && st.btnDisabled]}
+              onPress={goNext}
+              activeOpacity={valid ? 0.85 : 1}
+              disabled={loading || inTrans}
+            >
+              {loading
+                ? <ActivityIndicator color={valid ? '#000' : '#507664'} />
+                : <Text style={[st.btnText, !valid && st.btnTextDisabled]}>{getCTA(s)}</Text>
+              }
+            </TouchableOpacity>
+          )}
         <View style={{ flexDirection: 'row', justifyContent: s === 0 ? 'center' : 'space-between' }}>
           {s !== 0 && (
             <TouchableOpacity onPress={goBack} disabled={inTrans}>
@@ -1184,7 +1405,7 @@ export default function OnboardingScreen() {
               opacities={dotOpacities}
               translates={dotTranslates}
               greyDot={undefined}
-              total={5}
+              total={data.isMinor ? 8 : (isScout ? 5 : 5)}
             />
           </View>
 

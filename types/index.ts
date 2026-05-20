@@ -53,6 +53,12 @@ export interface PlayerProfile {
   last_activity_at?: string | null
   created_at?: string
   updated_at?: string
+  // ── Guardian / U16 fields ──
+  guardian_user_id?:        string | null
+  is_minor?:                boolean
+  guardian_pin_hash?:       string | null
+  contact_permission?:      'none' | 'endorsed_only' | 'all_verified'
+  guardian_consent_active?: boolean
 }
 
 export interface Organisation {
@@ -94,6 +100,7 @@ export interface ScoutProfile {
   years_experience?: number
   league_level?: string
   bio?: string
+  nationality?: string
   logo_url?: string
   is_verified: boolean
   clearance_check?: boolean       // legacy — use dbs_verified instead
@@ -155,4 +162,37 @@ export interface SearchFilters {
   featured_first?: boolean
   page?: number
   limit?: number
+}
+
+// ─── Guardian / U16 ──────────────────────────────────────────────────────────
+
+export interface GuardianProfile {
+  id:           string
+  user_id:      string
+  full_name:    string
+  relationship: 'parent' | 'legal_guardian'
+  email:        string
+  created_at:   string
+  updated_at:   string
+}
+
+export interface ParentalConsent {
+  id:                    string
+  guardian_user_id:      string
+  player_profile_id:     string
+  consent_type:          'granted' | 'withdrawn' | 'updated'
+  consent_version:       string
+  consent_text_snapshot: string
+  ip_address:            string | null
+  user_agent:            string | null
+  consented_at:          string
+}
+
+export interface GuardianContactApproval {
+  id:                string
+  guardian_user_id:  string
+  player_profile_id: string
+  scout_user_id:     string
+  status:            'approved' | 'blocked'
+  created_at:        string
 }

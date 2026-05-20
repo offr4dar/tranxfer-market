@@ -1,22 +1,26 @@
 import { useCallback, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Animated,
+  ScrollView, ActivityIndicator, Animated, Image,
 } from 'react-native'
 import Svg, { Path, Circle, G } from 'react-native-svg'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import ScoutInterestChart, { ChartDataPoint } from '@/components/ScoutInterestChart'
 import { fetchScoutInterest, ScoutInterestResult } from '@/lib/queries/scout-interest'
+import { fetchProfileViewStats, ProfileViewStats } from '@/lib/queries/profile-views'
 import PlayerLevelCard from '@/components/PlayerLevelCard'
 import PerformanceLogSheet from '@/components/PerformanceLogSheet'
+import ProfilePhotoUpload from '@/components/profile_photo_upload'
+import FeaturedVideo from '@/components/featured_video'
 import { useDevRole } from '@/lib/devRole'
-import { Colors, Spacing } from '@/constants/theme'
+import { Colors, Spacing, MiniCardStyles } from '@/constants/theme'
 import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE, DEMO_ENDORSEMENTS } from '@/lib/demoData'
 
 // ─── Scout Pro gradient badge ─────────────────────────────────────────────────
@@ -185,10 +189,10 @@ function AttrList({ items, style }: { items: AttrItem[]; style?: object }) {
             <Text style={attrListStyles.label}>{item.label}</Text>
             {item.values
               ? <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {item.values.map(v => (
-                    <Text key={v} style={attrListStyles.value}>{v}</Text>
-                  ))}
-                </View>
+                {item.values.map(v => (
+                  <Text key={v} style={attrListStyles.value}>{v}</Text>
+                ))}
+              </View>
               : <Text style={[attrListStyles.value, { flex: 1, flexWrap: 'wrap' }]}>{item.value}</Text>
             }
           </View>
@@ -227,7 +231,7 @@ const attrListStyles = StyleSheet.create({
   },
 })
 
-const RING_R = 31
+const RING_R = 34
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 
 type Role = 'player' | 'scout' | null
@@ -240,27 +244,36 @@ interface PlayerData {
   bio?: string; is_verified?: boolean; league_level?: string; skill_level?: string
   gender?: string; height_cm?: number; weight_kg?: number
   preferred_foot?: string; secondary_positions?: string[]
+  profile_photo_url?: string; postcode?: string
 }
 
 
 export default function ProfileScreen() {
   const { userId, signOut } = useAuth()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [role, setRole] = useState<Role>(null)
   const [data, setData] = useState<PlayerData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [insightsOpen, setInsightsOpen] = useState(false)
-  const [yourDetailsOpen, setYourDetailsOpen] = useState(false)
-  const [showreelOpen, setShowreelOpen] = useState(false)
-  const [perfLogOpen, setPerfLogOpen] = useState(false)
+  const [insightsOpen, setInsightsOpen]               = useState(false)
+  const [yourDetailsOpen, setYourDetailsOpen]         = useState(false)
+  const [featuredVideoOpen, setFeaturedVideoOpen]     = useState(false)
+  const [perfLogOpen, setPerfLogOpen]                 = useState(false)
+  const [scoutExperienceOpen, setScoutExperienceOpen] = useState(false)
+  const [scoutDetailsOpen, setScoutDetailsOpen]       = useState(false)
   const [logSheetOpen, setLogSheetOpen] = useState(false)
-  const insightRotate = useRef(new Animated.Value(0)).current
-  const detailsRotate = useRef(new Animated.Value(0)).current
-  const showreelRotate = useRef(new Animated.Value(0)).current
-  const perfLogRotate = useRef(new Animated.Value(0)).current
+  const insightRotate        = useRef(new Animated.Value(0)).current
+  const detailsRotate        = useRef(new Animated.Value(0)).current
+  const featuredVideoRotate  = useRef(new Animated.Value(0)).current
+  const perfLogRotate        = useRef(new Animated.Value(0)).current
+  const scoutExperienceRotate = useRef(new Animated.Value(0)).current
+  const scoutDetailsRotate    = useRef(new Animated.Value(0)).current
   const [totalLogs, setTotalLogs] = useState(0)
-  const [weekLogs, setWeekLogs] = useState(0)
+  const [weekLogs, setWeekLogs]   = useState(0)
+  const [weekStreak, setWeekStreak] = useState(0)
   const [interestData, setInterestData] = useState<ScoutInterestResult | null>(null)
+  const [viewStats, setViewStats] = useState<ProfileViewStats | null>(null)
+  const [hasVideo, setHasVideo] = useState(false)
   const { devRole, isDemoMode } = useDevRole()
   const activeRole = (devRole === 'player' ? 'player' : 'scout') as Role
 
@@ -288,9 +301,27 @@ export default function ProfileScreen() {
           { date: '27 Apr', views: 16, shortlists: 4 },
           { date: '29 Apr', views: 11, shortlists: 2 },
         ]
+        // Mock view stats for demo
+        setViewStats({
+          thisWeek: 14,
+          lastWeek: 10,
+          trendPct: 40,
+          trendUp: true,
+          dailyThisWeek: [
+            { date: 'Mon', count: 1 },
+            { date: 'Tue', count: 3 },
+            { date: 'Wed', count: 2 },
+            { date: 'Thu', count: 4 },
+            { date: 'Fri', count: 2 },
+            { date: 'Sat', count: 1 },
+            { date: 'Sun', count: 1 },
+          ],
+        })
+        setHasVideo(true)  // demo always has a video
         setInterestData({ data30: mock30, data7: mock30.slice(-7) })
         setTotalLogs(12)
         setWeekLogs(3)
+        setWeekStreak(3)   // demo: 3-week streak, shows fire
       } else {
         const scoutProfile = devRole === 'scout_subscribed'
           ? DEMO_SCOUT_PRO_PROFILE
@@ -343,16 +374,52 @@ export default function ProfileScreen() {
       monday.setDate(today.getDate() + toMonday)
       const since = monday.toISOString().split('T')[0] + 'T00:00:00'
 
-      const [{ count: totalLogCount }, { count: weekLogCount }, interestResult] =
+      const [{ count: totalLogCount }, { count: weekLogCount }, interestResult, viewStatsResult, { count: videoCount }, { data: streakDates }] =
         await Promise.all([
           supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
           supabase.from('performance_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('match_date', since),
           fetchScoutInterest(pData.id),
+          fetchProfileViewStats(userId),
+          supabase.from('player_videos').select('id', { count: 'exact', head: true }).eq('player_user_id', userId).eq('status', 'ready'),
+          // Last 52 weeks of match_dates for streak calculation
+          supabase
+            .from('performance_logs')
+            .select('match_date')
+            .eq('user_id', userId)
+            .gte('match_date', new Date(Date.now() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+            .order('match_date', { ascending: false }),
         ])
+
+      // ── Compute week streak ────────────────────────────────────────────────
+      let streak = 0
+      if (streakDates && streakDates.length > 0) {
+        const getISOWeekKey = (dateStr: string): string => {
+          const d = new Date(dateStr)
+          const jan4 = new Date(d.getFullYear(), 0, 4)
+          const startOfWeek1 = new Date(jan4)
+          startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
+          const weekNum = Math.floor((d.getTime() - startOfWeek1.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+          return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
+        }
+        const weekCounts: Record<string, number> = {}
+        for (const row of streakDates) {
+          const key = getISOWeekKey(row.match_date)
+          weekCounts[key] = (weekCounts[key] ?? 0) + 1
+        }
+        const currentWeekKey = getISOWeekKey(new Date().toISOString().split('T')[0])
+        const sortedWeeks = Object.keys(weekCounts).sort().reverse()
+        const startFrom = sortedWeeks[0] === currentWeekKey ? sortedWeeks.slice(1) : sortedWeeks
+        for (const wk of startFrom) {
+          if ((weekCounts[wk] ?? 0) >= 3) { streak++ } else { break }
+        }
+      }
 
       setTotalLogs(totalLogCount ?? 0)
       setWeekLogs(weekLogCount ?? 0)
+      setWeekStreak(streak)
       setInterestData(interestResult)
+      setViewStats(viewStatsResult)
+      setHasVideo((videoCount ?? 0) > 0)
     } else if (aData) {
       setRole('scout')
       setData(aData as unknown as PlayerData)
@@ -387,6 +454,27 @@ export default function ProfileScreen() {
   const initials = [data.first_name?.[0], data.last_name?.[0]].filter(Boolean).join('')
   const player = activeRole === 'player' ? (data as PlayerData) : null
   const score = player?.profile_completion_score ?? 0
+
+  // ── Next action prompt ────────────────────────────────────────────────────────
+  // Ordered by spec weight descending — first unfilled item wins
+  type NextAction = { label: string; pts: number; route: string }
+  function getNextAction(p: PlayerData, videoReady: boolean): NextAction | null {
+    const actions: [boolean, NextAction][] = [
+      [!!p.profile_photo_url, { label: 'Upload a profile photo', pts: 20, route: '/edit-profile' }],
+      [videoReady, { label: 'Upload a highlight video', pts: 20, route: '/player/media' }],
+      [!!p.first_name && !!p.last_name, { label: 'Add your full name', pts: 10, route: '/edit-profile' }],
+      [!!p.primary_position, { label: 'Set your position', pts: 10, route: '/edit-profile' }],
+      [!!p.nationality, { label: 'Set your nationality', pts: 10, route: '/edit-profile' }],
+      [!!p.postcode, { label: 'Add your postcode', pts: 10, route: '/edit-profile' }],
+      [!!p.bio, { label: 'Write a short bio', pts: 10, route: '/edit-profile' }],
+      [!!p.height_cm, { label: 'Add your height', pts: 5, route: '/edit-profile' }],
+      [!!p.preferred_foot, { label: 'Set your preferred foot', pts: 5, route: '/edit-profile' }],
+    ]
+    const missing = actions.find(([done]) => !done)
+    return missing ? missing[1] : null
+  }
+
+  const nextAction = player ? getNextAction(player, hasVideo) : null
 
   return (
     <ScreenBackground>
@@ -426,11 +514,25 @@ export default function ProfileScreen() {
             <Text style={styles.heroLastName}>{data.last_name}</Text>
           </View>
 
-          {/* Avatar — floats right */}
+          {/* Avatar — floats right; tappable to upload photo for own player profile */}
           <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            {player ? (
+              <ProfilePhotoUpload
+                photo_url={data.profile_photo_url}
+                initials={initials}
+                size={100}
+                is_demo_mode={isDemoMode}
+                on_change={(url) => {
+                  // Update local data so the score ring and profile stay in sync
+                  setData((prev: any) => prev ? { ...prev, profile_photo_url: url } : prev)
+                }}
+              />
+            ) : (
+              // Scout view — static avatar, no upload
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            )}
             {data.is_verified && activeRole === 'player' && (
               <View style={styles.verifiedBadge}>
                 <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
@@ -451,56 +553,121 @@ export default function ProfileScreen() {
             : DEMO_SCOUT_FREE_PROFILE
           const s = scout as any
 
-          const scoutAttrs = [
-            { label: 'Regions',       value: scout.regions_covered.join(' • ') },
-            { label: 'Specialisms',   value: scout.specialisms.join(' • ') },
-            { label: 'Safeguarding',  value: s.safeguarding_certified ? 'Fully compliant' : 'Not completed' },
-            { label: 'League Level',  value: scout.league_level ?? '—' },
-            { label: 'Positions',     value: (s.positions_seeking ?? []).join('  ') || '—' },
-          ]
-
           return (
-            <View style={{ gap: 16, paddingHorizontal: Spacing.lg }}>
-              {/* ID & DBS verified banner */}
+            <View>
+              {/* ID & DBS verified banner — always visible */}
               {s.layer1_verified && (
-                <VerifiedBanner onPress={() => {}} />
+                <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+                  <VerifiedBanner onPress={() => { }} />
+                </View>
               )}
 
-              {/* Experience + Scout Type stat cards */}
-              <View style={styles.detailsCardRow}>
-                <View style={[styles.detailsCard, { flex: 1 }]}>
-                  <Text style={styles.detailsCardLabel}>Experience</Text>
-                  <Text style={styles.detailsCardValue}>{scout.years_experience} Yrs</Text>
-                </View>
-                <View style={[styles.detailsCard, { flex: 1 }]}>
-                  <Text style={styles.detailsCardLabel}>Scout Type</Text>
-                  <Text style={styles.detailsCardValue} numberOfLines={1}>
-                    {scout.scout_type === 'club_scout' ? 'Club' : 'Freelance'}
-                  </Text>
-                </View>
+              {/* ── Experience ── */}
+              <View style={styles.insightBlock}>
+                <TouchableOpacity
+                  style={styles.insightHeader}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const toValue = scoutExperienceOpen ? 0 : 1
+                    Animated.timing(scoutExperienceRotate, { toValue, duration: 200, useNativeDriver: true }).start()
+                    setScoutExperienceOpen(v => !v)
+                  }}
+                >
+                  <Text style={styles.insightTitle}>Experience</Text>
+                  <View style={styles.insightDivider} />
+                  <Animated.View style={{ transform: [{ rotate: scoutExperienceRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                    <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                      <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                    </Svg>
+                  </Animated.View>
+                </TouchableOpacity>
+                {scoutExperienceOpen && (
+                  <View style={styles.insightContent}>
+                    <View style={styles.detailsContentWrap}>
+                      <View style={styles.detailsCardRow}>
+                        <View style={[styles.detailsCard, { flex: 1 }]}>
+                          <Text style={styles.detailsCardLabel}>Experience</Text>
+                          <Text style={styles.detailsCardValue}>{scout.years_experience} Yrs</Text>
+                        </View>
+                        <View style={[styles.detailsCard, { flex: 1 }]}>
+                          <Text style={styles.detailsCardLabel}>Scout Type</Text>
+                          <Text style={styles.detailsCardValue} numberOfLines={1}>
+                            {scout.scout_type === 'club_scout' ? 'Club' : 'Freelance'}
+                          </Text>
+                        </View>
+                      </View>
+                      {(() => {
+                        const isClub = scout.scout_type === 'club_scout'
+                        const label = isClub ? 'Club Name' : 'Scouting Network'
+                        const value = isClub ? s.affiliated_club : s.scouting_network
+                        if (!value) return null
+                        return (
+                          <View style={[styles.detailsCard, { height: undefined, minHeight: 82, gap: 8 }]}>
+                            <Text style={styles.detailsCardLabel}>{label}</Text>
+                            <Text style={styles.detailsCardValue} numberOfLines={2}>{value}</Text>
+                          </View>
+                        )
+                      })()}
+                    </View>
+                  </View>
+                )}
               </View>
 
-              {/* Club name (club scouts) or Scouting network (freelance) card */}
-              {(() => {
-                const isClub = scout.scout_type === 'club_scout'
-                const label = isClub ? 'Club Name' : 'Scouting Network'
-                const value = isClub ? s.affiliated_club : s.scouting_network
-                if (!value) return null
-                return (
-                  <View style={[styles.detailsCard, { height: undefined, minHeight: 82, gap: 8 }]}>
-                    <Text style={styles.detailsCardLabel}>{label}</Text>
-                    <Text style={styles.detailsCardValue} numberOfLines={2}>
-                      {value}
-                    </Text>
+              {/* ── Your Details ── */}
+              <View style={styles.insightBlock}>
+                <TouchableOpacity
+                  style={styles.insightHeader}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const toValue = scoutDetailsOpen ? 0 : 1
+                    Animated.timing(scoutDetailsRotate, { toValue, duration: 200, useNativeDriver: true }).start()
+                    setScoutDetailsOpen(v => !v)
+                  }}
+                >
+                  <Text style={styles.insightTitle}>Your Details</Text>
+                  <View style={styles.insightDivider} />
+                  <Animated.View style={{ transform: [{ rotate: scoutDetailsRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                    <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                      <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                    </Svg>
+                  </Animated.View>
+                </TouchableOpacity>
+                {scoutDetailsOpen && (
+                  <View style={styles.insightContent}>
+                    <View style={styles.profileStatsCard}>
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>Nationality</Text>
+                        <Text style={styles.profileStatsValue}>{s.nationality ?? '—'}</Text>
+                      </View>
+                      <View style={styles.profileStatsDivider} />
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>Regions</Text>
+                        <Text style={styles.profileStatsValue}>{scout.regions_covered.join(' • ')}</Text>
+                      </View>
+                      <View style={styles.profileStatsDivider} />
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>Specialisms</Text>
+                        <Text style={styles.profileStatsValue}>{scout.specialisms.join(' • ')}</Text>
+                      </View>
+                      <View style={styles.profileStatsDivider} />
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>Safeguarding</Text>
+                        <Text style={styles.profileStatsValue}>{s.safeguarding_certified ? 'Fully compliant' : 'Not completed'}</Text>
+                      </View>
+                      <View style={styles.profileStatsDivider} />
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>League Level</Text>
+                        <Text style={styles.profileStatsValue}>{scout.league_level ?? '—'}</Text>
+                      </View>
+                      <View style={styles.profileStatsDivider} />
+                      <View style={styles.profileStatsRow}>
+                        <Text style={styles.profileStatsLabel}>Positions</Text>
+                        <Text style={styles.profileStatsValue}>{(s.positions_seeking ?? []).join(' • ') || '—'}</Text>
+                      </View>
+                    </View>
                   </View>
-                )
-              })()}
-
-              {/* Attribute list */}
-              <AttrList
-                items={scoutAttrs}
-                style={{ paddingVertical: 0, paddingTop: 10 }}
-              />
+                )}
+              </View>
 
               {/* Upgrade CTA for free scouts */}
               {devRole === 'scout_free' && (
@@ -525,14 +692,14 @@ export default function ProfileScreen() {
                   <G transform="rotate(-90, 39, 39)">
                     <Circle
                       cx={39} cy={39} r={RING_R}
-                      stroke="rgba(255,255,255,0.1)"
-                      strokeWidth={8}
+                      stroke="#2B4052"
+                      strokeWidth={5}
                       fill="none"
                     />
                     <Circle
                       cx={39} cy={39} r={RING_R}
-                      stroke={Colors.brand}
-                      strokeWidth={8}
+                      stroke="#38A6FF"
+                      strokeWidth={5}
                       fill="none"
                       strokeDasharray={RING_CIRCUMFERENCE}
                       strokeDashoffset={RING_CIRCUMFERENCE * (1 - score / 100)}
@@ -549,6 +716,18 @@ export default function ProfileScreen() {
                 <Text style={styles.profileScoreDesc}>
                   Complete your profile to help scouts find you easier
                 </Text>
+                {score >= 100 ? (
+                  <Text style={[styles.profileScoreDesc, { color: '#38A6FF', marginTop: 4 }]}>
+                    Profile complete ✓
+                  </Text>
+                ) : nextAction ? (
+                  <Text style={[styles.profileScoreDesc, { marginTop: 4 }]}>
+                    <Text>Next: </Text>
+                    <Text style={{ color: '#ffffff' }}>
+                      {nextAction.label} (+{nextAction.pts} pts)
+                    </Text>
+                  </Text>
+                ) : null}
               </View>
               <Svg width={9} height={16} viewBox="0 0 9 16" fill="none">
                 <Path
@@ -592,9 +771,17 @@ export default function ProfileScreen() {
                 </Svg>
               </Animated.View>
             </TouchableOpacity>
-            {insightsOpen && interestData && (
+            {insightsOpen && (
               <View style={styles.insightContent}>
-                <ScoutInterestChart data30={interestData.data30} data7={interestData.data7} />
+
+                {/* ── Scout interest chart ── */}
+                {interestData && (
+                  <ScoutInterestChart
+                    data30={interestData.data30}
+                    data7={interestData.data7}
+                    views_this_week={viewStats?.thisWeek ?? 0}
+                  />
+                )}
               </View>
             )}
           </View>
@@ -681,22 +868,35 @@ export default function ProfileScreen() {
                       ...(player.secondary_positions ?? []),
                     ].filter(Boolean) as string[]
 
-                    const attrs = [
-                      { label: 'Gender', value: player.gender ?? 'Male' },
-                      { label: 'Height', value: player.height_cm ? `${player.height_cm} cm` : '171 cm' },
-                      { label: 'Weight', value: player.weight_kg ? `${player.weight_kg}kg` : '72kg' },
-                      { label: 'Preferred Foot', value: player.preferred_foot ?? 'Both' },
-                    ]
-
                     const displayPositions = positions.length > 0 ? positions : ['CB', 'LB', 'RB']
 
                     return (
-                      <AttrList
-                        items={[
-                          ...attrs,
-                          { label: 'Positions', values: displayPositions },
-                        ]}
-                      />
+                      <View style={styles.profileStatsCard}>
+                        <View style={styles.profileStatsRow}>
+                          <Text style={styles.profileStatsLabel}>Gender</Text>
+                          <Text style={styles.profileStatsValue}>{player.gender ?? 'Male'}</Text>
+                        </View>
+                        <View style={styles.profileStatsDivider} />
+                        <View style={styles.profileStatsRow}>
+                          <Text style={styles.profileStatsLabel}>Height</Text>
+                          <Text style={styles.profileStatsValue}>{player.height_cm ? `${player.height_cm} cm` : '171 cm'}</Text>
+                        </View>
+                        <View style={styles.profileStatsDivider} />
+                        <View style={styles.profileStatsRow}>
+                          <Text style={styles.profileStatsLabel}>Weight</Text>
+                          <Text style={styles.profileStatsValue}>{player.weight_kg ? `${player.weight_kg}kg` : '72kg'}</Text>
+                        </View>
+                        <View style={styles.profileStatsDivider} />
+                        <View style={styles.profileStatsRow}>
+                          <Text style={styles.profileStatsLabel}>Preferred Foot</Text>
+                          <Text style={styles.profileStatsValue}>{player.preferred_foot ?? 'Both'}</Text>
+                        </View>
+                        <View style={styles.profileStatsDivider} />
+                        <View style={styles.profileStatsRow}>
+                          <Text style={styles.profileStatsLabel}>Positions</Text>
+                          <Text style={styles.profileStatsValue}>{displayPositions.join(' · ')}</Text>
+                        </View>
+                      </View>
                     )
                   })()}
 
@@ -712,42 +912,37 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* ── Showreel (players only) ── */}
+        {/* ── Featured Video (players only) ── */}
         {player && (
           <View style={styles.insightBlock}>
             <TouchableOpacity
               style={styles.insightHeader}
               onPress={() => {
-                const toValue = showreelOpen ? 0 : 1
-                Animated.timing(showreelRotate, {
+                const toValue = featuredVideoOpen ? 0 : 1
+                Animated.timing(featuredVideoRotate, {
                   toValue,
                   duration: 200,
                   useNativeDriver: true,
                 }).start()
-                setShowreelOpen(v => !v)
+                setFeaturedVideoOpen(v => !v)
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.insightTitle}>Showreel</Text>
+              <Text style={styles.insightTitle}>Featured Video</Text>
               <View style={styles.insightDivider} />
-              <Animated.View style={{ transform: [{ rotate: showreelRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Animated.View style={{ transform: [{ rotate: featuredVideoRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
                 <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
                   <Path d="M10.5 1V20M1 10.5H20" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
                 </Svg>
               </Animated.View>
             </TouchableOpacity>
 
-            {showreelOpen && (
+            {featuredVideoOpen && (
               <View style={styles.insightContent}>
-                <TouchableOpacity style={styles.videoPlayer} activeOpacity={0.8}>
-                  <View style={styles.playBtn}>
-                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path d="M6 4l14 8-14 8V4z" fill="#000000" />
-                    </Svg>
-                  </View>
-                  <Text style={styles.videoHint}>Tap to upload</Text>
-                  <Text style={styles.videoHintSub}>Max 30 secs.</Text>
-                </TouchableOpacity>
+                <FeaturedVideo
+                  user_id={userId ?? ''}
+                  is_own_profile={activeRole === 'player'}
+                />
               </View>
             )}
           </View>
@@ -785,18 +980,22 @@ export default function ProfileScreen() {
                 </Text>
 
                 {/* Stat chips */}
-                <View style={styles.perfChipsRow}>
-                  <View style={[styles.perfChip, { width: 126 }]}>
-                    <Text style={styles.perfChipNumber}>{totalLogs}</Text>
-                    <Text style={styles.perfChipLabel}>Performance{'\n'}Log Entries</Text>
+                <View style={styles.miniCardRow}>
+                  <View style={[styles.miniCard, { width: 126 }]}>
+                    <Text style={styles.miniCardValue}>{totalLogs}</Text>
+                    <Text style={styles.miniCardLabel}>Performance{'\n'}Log Entries</Text>
                   </View>
-                  <View style={[styles.perfChip, { flex: 1 }]}>
-                    <Text style={styles.perfChipNumber}>{weekLogs}</Text>
-                    <Text style={styles.perfChipLabel}>Added{'\n'}This Week</Text>
+                  <View style={[styles.miniCard, { flex: 1 }]}>
+                    <Text style={styles.miniCardValue}>{weekLogs}</Text>
+                    <Text style={styles.miniCardLabel}>Added{'\n'}This Week</Text>
                   </View>
-                  <View style={[styles.perfChip, styles.perfChipFire, { width: 84 }]}>
-                    <Text style={styles.perfChipEmoji}>🔥</Text>
-                    <Text style={styles.perfChipLabel}>Keep{'\n'}It Up!</Text>
+                  {/* Streak chip */}
+                  <View style={[styles.miniCard, styles.miniCardStreak, { width: 84 }]}>
+                    <Text style={[styles.miniCardValue, { textAlign: 'center', zIndex: 1 }]}>{weekStreak}</Text>
+                    <Text style={[styles.miniCardLabel, { textAlign: 'center', zIndex: 1 }]}>Week{"\n"}Streak</Text>
+                    {weekStreak >= 2 && (
+                      <Text style={styles.miniCardStreakEmoji}>🔥</Text>
+                    )}
                   </View>
                 </View>
 
@@ -827,6 +1026,7 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
       <PerformanceLogSheet
         visible={logSheetOpen}
         onClose={() => setLogSheetOpen(false)}
@@ -1099,7 +1299,44 @@ const styles = StyleSheet.create({
     color: Colors.brand,
   },
 
-  // ── Showreel ──────────────────────────────────────────────────────────────
+  // ── Profile stats card (shared with scout player view) ──────────────────────
+  profileStatsCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  profileStatsDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: 15,
+  },
+  profileStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  profileStatsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flexShrink: 0,
+  },
+  profileStatsValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    textAlign: 'right',
+    flex: 1,
+  },
+
+  // ── Featured Video ─────────────────────────────────────────────────────────
   videoPlayer: {
     height: 175,
     backgroundColor: '#1A1A1A',
@@ -1128,6 +1365,17 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
   },
+  viewMediaLink: {
+    marginTop: 12,
+    alignSelf: 'flex-end',
+  },
+  viewMediaLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.brand,
+    letterSpacing: 0.3,
+  },
+
 
   section: {
     padding: Spacing.lg, gap: 10,
@@ -1183,44 +1431,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.md,
   },
-  perfChipsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+  // ── Mini cards (from shared theme) ──────────────────────────────────────────
+  ...MiniCardStyles,
+  // Streak chip modifier (local only — not shared)
+  miniCardStreak: {
+    overflow: 'hidden',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
-  perfChip: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    padding: 14,
-    justifyContent: 'space-between',
-    minHeight: 82,
-    gap: 6,
-  },
-  perfChipFire: {
-    backgroundColor: '#260b0b',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  perfChipNumber: {
-    fontFamily: 'Anton_400Regular',
-    fontSize: 28,
-    color: '#ffffff',
-  },
-  perfChipEmoji: {
-    fontSize: 28,
-    lineHeight: 34,
-  },
-  perfChipLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    lineHeight: 14,
-  },
-  perfCtaRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  miniCardStreakEmoji: {
+    position: 'absolute' as const,
+    top: 4,
+    left: 0,
+    right: 0,
+    textAlign: 'center' as const,
+    fontSize: 60,
+    opacity: 0.4,
+    lineHeight: 70,
+    zIndex: 0,
   },
   // ── Large button variants ───────────────────────────────────────────
   btn_row: {

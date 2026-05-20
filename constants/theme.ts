@@ -28,3 +28,35 @@ export const Radius = {
   xl: 24,
   full: 999,
 }
+
+// ─── Mini card — shared style tokens ──────────────────────────────────────────
+// Used everywhere we render a data chip (Profile Insights, Performance Log,
+// Scout Interest Chart). Import MiniCardStyles and spread into your StyleSheet.
+export const MiniCardStyles = {
+  miniCardRow: {
+    flexDirection: 'row' as const,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  miniCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 14,
+    justifyContent: 'space-between' as const,
+    minHeight: 82,
+    gap: 6,
+  },
+  miniCardLabel: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.3,
+    lineHeight: 14,
+  },
+  miniCardValue: {
+    fontFamily: 'Anton_400Regular',
+    fontSize: 28,
+    color: '#ffffff',
+  },
+}

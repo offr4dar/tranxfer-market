@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Animated, PanResponder, Dimensions,
+  ActivityIndicator, Animated, PanResponder, Dimensions, TouchableWithoutFeedback,
 } from 'react-native'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@clerk/clerk-expo'
 import { supabase } from '@/lib/supabase'
@@ -69,6 +70,7 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
 
   const [isShown, setIsShown]   = useState(false)
   const sheetY                  = useRef(new Animated.Value(SCREEN_H)).current
+  const overlayOpacity          = useRef(new Animated.Value(0)).current
   const isDraggingClose         = useRef(false)
 
   useEffect(() => {
@@ -76,10 +78,16 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
       isDraggingClose.current = false
       setIsShown(true)
       sheetY.setValue(SCREEN_H)
-      Animated.timing(sheetY, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+      overlayOpacity.setValue(0)
+      Animated.parallel([
+        Animated.timing(sheetY,         { toValue: 0,    duration: 300, useNativeDriver: true }),
+        Animated.timing(overlayOpacity, { toValue: 1,    duration: 300, useNativeDriver: true }),
+      ]).start()
     } else if (!isDraggingClose.current) {
-      Animated.timing(sheetY, { toValue: SCREEN_H, duration: 240, useNativeDriver: true })
-        .start(() => setIsShown(false))
+      Animated.parallel([
+        Animated.timing(sheetY,         { toValue: SCREEN_H, duration: 240, useNativeDriver: true }),
+        Animated.timing(overlayOpacity, { toValue: 0,         duration: 240, useNativeDriver: true }),
+      ]).start(() => setIsShown(false))
     }
   }, [visible])
 
@@ -93,8 +101,10 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
       onPanResponderRelease: (_, { dy, vy }) => {
         if (dy > 100 || vy > 0.5) {
           isDraggingClose.current = true
-          Animated.timing(sheetY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
-            .start(() => {
+          Animated.parallel([
+            Animated.timing(sheetY,         { toValue: SCREEN_H, duration: 220, useNativeDriver: true }),
+            Animated.timing(overlayOpacity, { toValue: 0,         duration: 220, useNativeDriver: true }),
+          ]).start(() => {
               setIsShown(false)
               handleClose()
             })
@@ -175,6 +185,14 @@ export default function PerformanceLogSheet({ visible, onClose, onSaved }: Props
   return (
     <Modal visible={isShown} animationType="none" transparent onRequestClose={handleClose}>
       <View style={styles.positioner} pointerEvents="box-none">
+
+        {/* ── Backdrop: blur + dark scrim ── */}
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]}>
+            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
+          </Animated.View>
+        </TouchableWithoutFeedback>
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.kav}
@@ -316,6 +334,10 @@ const styles = StyleSheet.create({
   positioner: {
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   kav: {
     justifyContent: 'flex-end',

@@ -38,26 +38,32 @@ function DemoExitButton() {
   const insets = useSafeAreaInsets()
   if (!isDemoMode) return null
   return (
-    <TouchableOpacity
-      style={[demoStyles.btn, { bottom: 100 + insets.bottom }]}
-      onPress={() => router.replace('/demo-select' as any)}
-      activeOpacity={0.85}
-    >
-      <Text style={demoStyles.label}>EXIT DEMO</Text>
-    </TouchableOpacity>
+    <View style={[demoStyles.container, { bottom: insets.bottom }]}>
+      <TouchableOpacity
+        style={demoStyles.btn}
+        onPress={() => router.replace('/demo-select' as any)}
+        activeOpacity={0.85}
+      >
+        <Text style={demoStyles.label}>EXIT DEMO</Text>
+      </TouchableOpacity>
+    </View>
   )
 }
 const demoStyles = StyleSheet.create({
-  btn: {
+  container: {
     position: 'absolute',
-    right: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  btn: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 100,
     backgroundColor: 'rgba(0,0,0,0.85)',
     borderWidth: 1.5,
     borderColor: Colors.brand,
-    zIndex: 999,
   },
   label: {
     fontSize: 11,
@@ -177,9 +183,13 @@ export default function RootLayout() {
             <Stack.Screen name="performance-log" options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="edit-profile"    options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="player/[id]"              options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="player/media"             options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="player/record"            options={{ headerShown: false, animation: 'slide_from_bottom' }} />
             <Stack.Screen name="player/performance/[id]"  options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="upgrade"                  options={{ headerShown: false, animation: 'slide_from_bottom' }} />
             <Stack.Screen name="verify"                   options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="guardian/dashboard"       options={{ headerShown: false, animation: 'slide_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="checkout"                 options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           </Stack>
           <DemoExitButton />
         </View>

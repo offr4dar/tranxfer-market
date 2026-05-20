@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Image, Alert,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { useRouter } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,6 +12,8 @@ import ScreenBackground from '@/components/ScreenBackground'
 import DbsInfoSheet from '@/components/DbsInfoSheet'
 import { supabase } from '@/lib/supabase'
 import { Colors, Spacing } from '@/constants/theme'
+import { use_photo_upload } from '@/hooks/use_photo_upload'
+import ProfilePhotoUpload from '@/components/profile_photo_upload'
 import { useDevRole } from '@/lib/devRole'
 import { showNativePicker } from '@/lib/nativePicker'
 import { DEMO_PLAYER_PROFILE, DEMO_SCOUT_FREE_PROFILE, DEMO_SCOUT_PRO_PROFILE } from '@/lib/demoData'
@@ -60,23 +63,29 @@ function ageFromDob(dob: string): number | null {
   return age >= 0 ? age : null
 }
 
-// Weighted score: each field has a point value summing to 100
+// Weighted score — matches spec exactly (total = 100 pts)
 function calcCompletionScore(p: {
-  firstName: string; lastName: string; age: number | null
-  nationality: string; primaryPosition: string
-  playingLevel: string; performanceLevel: string
-  photoUrl: string; reelUrl: string
+  firstName:     string
+  lastName:      string
+  nationality:   string
+  primaryPosition: string
+  postcode:      string
+  photoUrl:      string
+  hasVideo:      boolean
+  bio:           string
+  heightCm:      number | null
+  preferredFoot: string
 }): number {
   const checks: [boolean, number][] = [
-    [!!p.firstName,        10],
-    [!!p.lastName,         10],
-    [!!p.age,              10],
-    [!!p.nationality,      15],
-    [!!p.primaryPosition,  15],
-    [!!p.playingLevel,     15],
-    [!!p.performanceLevel, 10],
-    [!!p.photoUrl,         10],
-    [!!p.reelUrl,           5],
+    [!!p.photoUrl,                      20],   // profile picture
+    [!!p.firstName && !!p.lastName,     10],   // full name
+    [!!p.primaryPosition,               10],   // position
+    [!!p.nationality,                   10],   // nationality
+    [!!p.postcode,                      10],   // postcode
+    [p.hasVideo,                        20],   // at least one video uploaded
+    [!!p.bio,                           10],   // bio written
+    [!!p.heightCm,                       5],   // height set
+    [!!p.preferredFoot,                  5],   // preferred foot
   ]
   return checks.reduce((sum, [filled, pts]) => sum + (filled ? pts : 0), 0)
 }
@@ -119,6 +128,7 @@ interface FormState {
   nationality: string
   playingLevel: string
   performanceLevel: string
+  photoUrl: string          // now in FormState so the UI can react to it
   // Scout DBS / verification fields
   dbsCertificateNumber: string
   dbsOnUpdateService: boolean
@@ -136,18 +146,26 @@ export default function EditProfileScreen() {
     firstName: '', lastName: '', dob: '',
     height: '', weight: '', gender: '',
     nationality: '', playingLevel: '', performanceLevel: '',
+    photoUrl: '',
     dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
   })
-  const [loading, setLoading]         = useState(true)
-  const [saving, setSaving]           = useState(false)
-  const [error, setError]             = useState<string | null>(null)
+  const [loading, setLoading]             = useState(true)
+  const [saving, setSaving]               = useState(false)
+  const [error, setError]                 = useState<string | null>(null)
   const [dbsInfoVisible, setDbsInfoVisible] = useState(false)
+  const { uploading: uploading_photo, select_and_upload } = use_photo_upload()
   // Read-only scout verification state loaded from DB / demo
   const [idVerified, setIdVerified]   = useState(false)
   const [idVerifiedAt, setIdVerifiedAt] = useState<string | null>(null)
 
-  // Fields not editable here but needed for the completion score
-  const immutableRef = useRef({ primaryPosition: '', photoUrl: '', reelUrl: '' })
+  // Read-only fields not editable via form, but needed for the completion score
+  const immutableRef = useRef({
+    primaryPosition: '',
+    postcode:        '',
+    bio:             '',
+    preferredFoot:   '',
+    hasVideo:        false,
+  })
 
   // Load current profile
   useEffect(() => {
@@ -165,13 +183,16 @@ export default function EditProfileScreen() {
           nationality:      p.nationality ?? '',
           playingLevel:     p.league_level ?? '',
           performanceLevel: p.skill_level  ?? '',
+          photoUrl:         p.profile_photo_url ?? '',
           // player accounts don't use DBS fields
           dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
         })
         immutableRef.current = {
-          primaryPosition: p.primary_position  ?? '',
-          photoUrl:        p.profile_photo_url ?? '',
-          reelUrl:         p.highlight_reel_url ?? '',
+          primaryPosition: p.primary_position   ?? '',
+          postcode:        '',    // demo has no postcode
+          bio:             '',    // demo has no bio
+          preferredFoot:   p.preferred_foot      ?? '',
+          hasVideo:        true,  // demo always has a video
         }
       } else {
         const s = devRole === 'scout_subscribed' ? DEMO_SCOUT_PRO_PROFILE : DEMO_SCOUT_FREE_PROFILE
@@ -212,13 +233,22 @@ export default function EditProfileScreen() {
             nationality:      data.nationality  ?? '',
             playingLevel:     data.league_level ?? '',
             performanceLevel: data.skill_level  ?? '',
+            photoUrl:         data.profile_photo_url ?? '',
             // player accounts don't use DBS fields
             dbsCertificateNumber: '', dbsOnUpdateService: false, safeguardingCertified: false,
           })
+          // Fetch player_videos separately to check if they have uploaded any Mux video
+          const { count: videoCount } = await supabase
+            .from('player_videos')
+            .select('id', { count: 'exact', head: true })
+            .eq('player_user_id', userId)
+            .eq('status', 'ready')
           immutableRef.current = {
             primaryPosition: data.primary_position   ?? '',
-            photoUrl:        data.profile_photo_url  ?? '',
-            reelUrl:         data.highlight_reel_url ?? '',
+            postcode:        data.postcode            ?? '',
+            bio:             data.bio                 ?? '',
+            preferredFoot:   data.preferred_foot      ?? '',
+            hasVideo:        (videoCount ?? 0) > 0,
           }
         } else {
           // Scout profile fields
@@ -247,6 +277,13 @@ export default function EditProfileScreen() {
     showNativePicker(title, options, value => set(field, value))
   }
 
+  // ── Photo upload — delegates to use_photo_upload hook ──────────────────────
+  function handle_photo_change(url: string) {
+    setForm(prev => ({ ...prev, photoUrl: url }))
+    immutableRef.current = { ...immutableRef.current }
+  }
+
+
   async function handleSave() {
     // In demo mode, skip DB write and just go back
     if (isDemoMode) {
@@ -268,19 +305,20 @@ export default function EditProfileScreen() {
 
     if (isPlayer) {
       const age = ageFromDob(form.dob) ?? (parseInt(form.dob, 10) || null)
-      const { primaryPosition, photoUrl, reelUrl } = immutableRef.current
+      const { primaryPosition, postcode, bio, preferredFoot, hasVideo } = immutableRef.current
+      const heightCm = form.height.trim() ? parseInt(form.height.trim(), 10) : null
       const score = calcCompletionScore({
-        firstName:        form.firstName.trim(),
-        lastName:         form.lastName.trim(),
-        age,
-        nationality:      form.nationality,
+        firstName:       form.firstName.trim(),
+        lastName:        form.lastName.trim(),
+        nationality:     form.nationality,
         primaryPosition,
-        playingLevel:     form.playingLevel,
-        performanceLevel: form.performanceLevel,
-        photoUrl,
-        reelUrl,
+        postcode,
+        photoUrl:        form.photoUrl,
+        hasVideo,
+        bio,
+        heightCm,
+        preferredFoot,
       })
-      const heightCm  = form.height.trim()  ? parseInt(form.height.trim(), 10)  : null
       const weightKg  = form.weight.trim()  ? parseInt(form.weight.trim(), 10)  : null
       const genderVal = form.gender         ? (form.gender.toLowerCase() as 'male' | 'female') : null
       
@@ -361,25 +399,24 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Photo */}
-        <TouchableOpacity style={styles.photoRow} activeOpacity={0.8}>
-          <View style={styles.photoCircle}>
-            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-                stroke="rgba(255,255,255,0.5)"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-                stroke="rgba(255,255,255,0.5)"
-                strokeWidth={1.5}
-              />
-            </Svg>
+        <View style={styles.photoRow}>
+          <ProfilePhotoUpload
+            photo_url={form.photoUrl || undefined}
+            initials={`${form.firstName?.[0] ?? ''}${form.lastName?.[0] ?? ''}`.toUpperCase()}
+            size={80}
+            is_demo_mode={isDemoMode}
+            on_change={handle_photo_change}
+          />
+          <View style={{ gap: 4, justifyContent: 'center' }}>
+            <Text style={styles.photoLabel}>
+              {form.photoUrl ? 'Change photo' : 'Upload a photo'}
+            </Text>
+            {uploading_photo && <Text style={styles.photoHint}>Uploading…</Text>}
+            {!uploading_photo && !form.photoUrl && (
+              <Text style={styles.photoHint}>Tap to pick from library or take a photo</Text>
+            )}
           </View>
-          <Text style={styles.photoLabel}>Upload a photo</Text>
-        </TouchableOpacity>
+        </View>
 
         {/* First name */}
         <FieldLabel label="First name" />
@@ -620,24 +657,6 @@ export default function EditProfileScreen() {
               placeholder="Select performance level"
               onPress={() => openPicker('Performance level', PERFORMANCE_LEVELS, 'performanceLevel')}
             />
-
-            {/* Showreel */}
-            <View style={styles.showreelSection}>
-              <FieldLabel label="Showreel" />
-              <TouchableOpacity style={styles.videoBox} activeOpacity={0.8}>
-                <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={{ marginBottom: 8 }}>
-                  <Path
-                    d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.895L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"
-                    stroke="rgba(255,255,255,0.25)"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-                <Text style={styles.videoLabel}>Tap to upload</Text>
-                <Text style={styles.videoSub}>Max 30 secs.</Text>
-              </TouchableOpacity>
-            </View>
           </>
         )}
 
@@ -718,21 +737,14 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  photoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
   photoLabel: {
     color: Colors.text,
     fontSize: 16,
     letterSpacing: 0.32,
+  },
+  photoHint: {
+    color: Colors.textSecondary,
+    fontSize: 13,
   },
 
   labelWrap: {

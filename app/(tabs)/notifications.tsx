@@ -9,6 +9,7 @@ import ScreenHeader from '@/components/ScreenHeader'
 import ScreenBackground from '@/components/ScreenBackground'
 import { Colors, Spacing } from '@/constants/theme'
 import { useDevRole } from '@/lib/devRole'
+import { BellIcon } from '@/components/icons/TabIcons'
 
 interface Notification {
   id: string
@@ -19,12 +20,6 @@ interface Notification {
   created_at: string
 }
 
-const TYPE_ICON: Record<string, string> = {
-  profile_view: '👁',
-  message:      '💬',
-  shortlist:    '⭐',
-  system:       '📢',
-}
 
 function groupByDate(notifications: Notification[]) {
   const now   = new Date()
@@ -124,7 +119,9 @@ export default function NotificationsScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🔔</Text>
+            <View style={styles.emptyIconWrap}>
+              <BellIcon color="#fff" size={40} />
+            </View>
             <Text style={styles.emptyTitle}>You're all caught up</Text>
             <Text style={styles.emptySub}>
               Profile views, contact requests and match alerts will appear here.
@@ -138,7 +135,7 @@ export default function NotificationsScreen() {
             activeOpacity={0.7}
           >
             <View style={[styles.iconWrap, !item.read && styles.iconWrapUnread]}>
-              <Text style={styles.icon}>{TYPE_ICON[item.type] ?? '📢'}</Text>
+              <BellIcon color="#fff" size={22} />
             </View>
             <View style={styles.rowBody}>
               <Text style={[styles.notifTitle, !item.read && styles.notifTitleUnread]}>
@@ -189,6 +186,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand, marginTop: 6,
   },
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: Spacing.xl, gap: 12 },
+  emptyIconWrap: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyIcon:  { fontSize: 40 },
   emptyTitle: { color: Colors.text, fontSize: 18, fontWeight: '600' },
   emptySub:   { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22 },

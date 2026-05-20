@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, useWindowDimensions,
 } from 'react-native'
 import { LineChart } from 'react-native-gifted-charts'
-import { Colors, Spacing, Radius } from '@/constants/theme'
+import { Colors, Spacing, Radius, MiniCardStyles } from '@/constants/theme'
 
 // ─── Data types ───────────────────────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ export interface ChartDataPoint {
 interface Props {
   data30: ChartDataPoint[]   // 30 days of data
   data7: ChartDataPoint[]    // 7 days of data (last 7 of data30)
+  views_this_week: number    // weekly view count shown inline in header
 }
 
 // ─── Data colours (not theme — data encoding colours) ────────────────────────
@@ -37,7 +38,7 @@ function conversionRatio(views: number, shortlists: number): number | null {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ScoutInterestChart({ data30, data7 }: Props) {
+export default function ScoutInterestChart({ data30, data7, views_this_week }: Props) {
   const { width } = useWindowDimensions()
   const [period, setPeriod] = useState<'7' | '30'>('7')
   const [tooltip, setTooltip] = useState<{ index: number } | null>(null)
@@ -71,18 +72,29 @@ export default function ScoutInterestChart({ data30, data7 }: Props) {
 
       {/* ── Period toggle ── */}
       <View style={styles.toggleRow}>
-        {(['7', '30'] as const).map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.toggleBtn, period === p && styles.toggleBtnActive]}
-            onPress={() => { setPeriod(p); setTooltip(null) }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleText, period === p && styles.toggleTextActive]}>
-              {p} days
-            </Text>
-          </TouchableOpacity>
-        ))}
+
+        {/* View count — far left */}
+        <Text style={styles.views_this_week_label}>
+          <Text style={styles.views_this_week_number}>{views_this_week}</Text>
+          {' profile views this week'}
+        </Text>
+
+        {/* Period pills — far right */}
+        <View style={styles.toggle_pills}>
+          {(['7', '30'] as const).map(p => (
+            <TouchableOpacity
+              key={p}
+              style={[styles.toggleBtn, period === p && styles.toggleBtnActive]}
+              onPress={() => { setPeriod(p); setTooltip(null) }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.toggleText, period === p && styles.toggleTextActive]}>
+                {p} days
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
       </View>
 
       {/* ── Legend ── */}
@@ -98,18 +110,18 @@ export default function ScoutInterestChart({ data30, data7 }: Props) {
       </View>
 
       {/* ── Stat cards ── */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Total views</Text>
-          <Text style={styles.statValue}>{totalViews}</Text>
+      <View style={styles.miniCardRow}>
+        <View style={[styles.miniCard, { flex: 1 }]}>
+          <Text style={styles.miniCardLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Total views</Text>
+          <Text style={styles.miniCardValue}>{totalViews}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Tracking</Text>
-          <Text style={styles.statValue}>{totalShortlists}</Text>
+        <View style={[styles.miniCard, { flex: 1 }]}>
+          <Text style={styles.miniCardLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Tracking</Text>
+          <Text style={styles.miniCardValue}>{totalShortlists}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Conversion</Text>
-          <Text style={styles.statValue}>{pct(totalShortlists, totalViews)}</Text>
+        <View style={[styles.miniCard, { flex: 1 }]}>
+          <Text style={styles.miniCardLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Conversion</Text>
+          <Text style={styles.miniCardValue}>{pct(totalShortlists, totalViews)}</Text>
         </View>
       </View>
 
@@ -194,11 +206,25 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 
-  // Toggle
+  // Toggle row
   toggleRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggle_pills: {
+    flexDirection: 'row',
     gap: 6,
+  },
+  views_this_week_label: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    flexShrink: 1,
+  },
+  views_this_week_number: {
+    fontSize: 12,
+    color: Colors.text,
+    fontWeight: '700',
   },
   toggleBtn: {
     paddingHorizontal: 12,
@@ -240,32 +266,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // Stat cards
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    padding: 15,
-    gap: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ffffff',
-    opacity: 0.5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statValue: {
-    fontFamily: 'Anton_400Regular',
-    fontSize: 22,
-    color: Colors.text,
-    textTransform: 'uppercase',
-  },
+  // Mini cards — pulled from shared theme (same as profile.tsx)
+  ...MiniCardStyles,
 
   // Chart
   chartWrap: {
